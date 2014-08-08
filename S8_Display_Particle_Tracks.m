@@ -6,14 +6,13 @@ if(strcmp(getenv('COMPUTERNAME'),'GT-DSK-DONNELLE')), datapath = 'I:/SPring-8/20
 if(strcmp(getenv('COMPUTERNAME'),'ASPEN')), datapath = 'S:/Temporary/WCH/2012 B/MCT/Images/'; end
 experiment.read = 'FD Corrected/';
 experiment.filelist = 'S8_12B_XU.csv';
-experiment.write = 'Processed/MCT Rate Calculation/R02/Particle Tracks/';
+experiment.write = 'Processed/Particle Tracks/';
 
 FAD_IMAGESET_L = 'Low/';
 FAD_FILENAME_L = 'fad_';
 FAD_FILETYPE_L = '.jpg';
 
 SCALE = 0.5;
-imsize = [2560,2160]; % Image size in pixels
 
 [FileName,PathName] = uigetfile('*.xls','Select a file',[datapath,'MCT Rate Calculation*.xls']);
 XLS = [PathName,FileName];
@@ -22,7 +21,7 @@ load(MAT);
 [status,sheets] = xlsfinfo([PathName,FileName]);
 
 %% Write the annotated images
-for s = 1:length(sheets),
+for s = 7:length(sheets),
     
     data = xlsread(XLS,s);
     
@@ -30,14 +29,8 @@ for s = 1:length(sheets),
     for t = timepoints,
         
         % Load the first image at that timepoint
-        filename = sprintf('%s%s%s/%s%s%s%.4d%s',datapath,experiment.read,sheets{s}(1:12),FAD_IMAGESET_L,sheets{s},FAD_FILENAME_L,start(t)+1,FAD_FILETYPE_L);
-        
-        % Load the image
-        if(exist(filename)),
-            im = imread(filename);
-        else
-            im = uint8(zeros(imsize));
-        end
+        filename = sprintf('%s%s%s/%s%s%s%.4d%s',datapath,experiment.read,sheets{s}(1:12),FAD_IMAGESET_L,sheets{s},FAD_FILENAME_L,start(t),FAD_FILETYPE_L);
+        im = imread(filename);
         
         im = repmat(im,[1 1 3]);
         im = imresize(im,SCALE);
