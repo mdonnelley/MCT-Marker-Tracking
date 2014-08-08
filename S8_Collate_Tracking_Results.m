@@ -1,53 +1,44 @@
-% Script to collate data about MCT rate of all particles in each animal
+% Script to collate average MCT rates (column K) from the Excel file
 
-PathName = 'I:/SPring-8/2012 A/20XU/MCT/Images/Processed/MCT Rate Calculation/R01/';
-cols = 10;
+if(strcmp(getenv('COMPUTERNAME'),'GT-DSK-DONNELLE')), datapath = 'I:/SPring-8/2012 B/MCT/Images/Processed/MCT Rate Calculation/'; end
+if(strcmp(getenv('COMPUTERNAME'),'ASPEN')), datapath = 'S:/Temporary/WCH/2012 B/MCT/Images/Processed/MCT Rate Calculation/'; end
 
-B = 'MCT Rate Calculation 2013-Jul-29 10-52-28 MD Baseline.xls';
-R = 'MCT Rate Calculation 2013-Jul-29 13-44-21 MD Repeat.xls';
+% particles = 50;                         % Number of particles to track
+% frames = 20;                            % Number of frames to track each particle for
+% times = [-0.5,1:0.5:2,3:10,12:2:20];	% Timepoint in minutes
+% 
+% H = 'R01/MCT Rate Calculation 2013-Sep-30 15-08-31 MD - HS.xls';
+% M = 'R01/MCT Rate Calculation 2013-Sep-30 15-08-31 MD - Mannitol.xls';
 
-[B_status,B_sheets] = xlsfinfo([PathName,B]);
-[R_status,R_sheets] = xlsfinfo([PathName,R]);
+particles = 200;                                    % Number of particles to track
+frames = 10;                                        % Number of frames to track each particle for
+times = [-1,1,2,4,8,12,16];                         % Timepoint in minutes
 
-baseline = [];
-three = [];
-nine = [];
-twentyfive = [];
+H = 'R02/MCT Rate Calculation 2013-Nov-12 15-01-01 MD - HS.xls';
+M = 'R02/MCT Rate Calculation 2013-Nov-12 15-01-01 MD - Mannitol.xls';
 
-for s = 1:length(B_sheets),
+cols = 11;
+rows = 1:particles*frames:particles*frames*length(times);
+
+[H_status,H_sheets] = xlsfinfo([datapath,H]);
+[M_status,M_sheets] = xlsfinfo([datapath,M]);
+
+for s = 1:length(H_sheets),
     
-    data = xlsread([PathName,B],s);
-    
-    % Get mean MCT rate for each particle
-    for i = 1:max(data(data(:,4) > 0, 2))
-       
-        rate = nanmean(data(data(:,2) == i,10));
-        baseline = [baseline;rate];
-        
-	end
-
-end
-
-[animals,R_IX] = sort(R_sheets);
-
-for s = 1:length(R_sheets),
-    
-    IX = find(R_IX == s);
-    data = xlsread([PathName,R],s);
-    
-    % Get mean MCT rate for each particle
-    for i = 1:max(data(data(:,4) > 0, 2))
-        
-        rate = nanmean(data(data(:,2) == i,10));
-        
-        if(IX <= 8),
-            nine = [nine;rate];
-        elseif(IX >= 9 && IX <= 16),
-            twentyfive = [twentyfive;rate];
-        elseif(IX >= 17),
-            three = [three;rate];
-        end
-        
-    end
+    data = xlsread([datapath,H],s);
+    H_stats(1:length(times),:,s) = data(rows,cols);
     
 end
+
+for s = 1:length(M_sheets),
+    
+    data = xlsread([datapath,M],s);
+    M_stats(1:length(times),:,s) = data(rows,cols);
+    
+end
+
+H_stats(isnan(H_stats)) = 0;
+H_average = squeeze(H_stats(:,1,:));
+
+M_stats(isnan(M_stats)) = 0;
+M_average = squeeze(M_stats(:,1,:));
