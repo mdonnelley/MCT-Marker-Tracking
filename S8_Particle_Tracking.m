@@ -22,32 +22,37 @@ clear all; clc;
 
 %% Analysis specific parameters
 
-% datapath = 'P:/SPring-8/2012 B/MCT/Images/';
-if(strcmp(getenv('COMPUTERNAME'),'GT-DSK-DONNELLE')), datapath = 'I:/SPring-8/2012 B/MCT/Images/'; end
-if(strcmp(getenv('COMPUTERNAME'),'ASPEN')), datapath = 'S:/Temporary/WCH/2012 B/MCT/Images/'; end
-if(strcmp(getenv('COMPUTERNAME'),'THREDBO')), datapath = 'C:/Users/Martin Donnelley/Documents/2012 B/MCT/Images/'; end
-experiment.read = 'FD Corrected/';
-experiment.filelist = 'S8_12B_XU.csv';
-experiment.write = 'Processed/MCT Rate Calculation/R02/';
+if(strcmp(getenv('COMPUTERNAME'),'GT-DSK-DONNELLE')), datapath = 'P:/'; end
+if(strcmp(getenv('COMPUTERNAME'),'ASPEN')), datapath = 'S:/Temporary/WCH/'; end
+if(strcmp(getenv('COMPUTERNAME'),'THREDBO')), datapath = 'C:/Users/Martin Donnelley/Documents/'; end
+
+experiment.read = [datapath,'SPring-8/2013 B/MCT/Images/FD Corrected/'];
+experiment.write = [datapath,'SPring-8/2013 B/MCT/Images/Processed/MCT Rate Calculation/'];
+experiment.filelist = [datapath,'SPring-8/2013 B/MCT/Images/S8_13B_XU.csv'];
+experiment.runlist = [9:13,16:17,20:24,26:30,33,35:44,46:50,52:54,56:58,60:61];
 
 FAD_IMAGESET_L = 'Low/';
 FAD_FILENAME_L = 'fad_';
 FAD_FILETYPE_L = '.jpg';
 
 particles = 200;                                    % Number of particles to track
-frames = 10;                                        % Number of frames to track each particle for
-times = [-1,1,2,4,8,12,16];                         % Timepoint in minutes
-gap = 10;                                           % Gap between each analysis frame
+% frames = 15;                                        % Number of frames to track each particle for
+% times = -5:-1;                                      % Timepoint in minutes
+% CHANGE FRAMES TO BE THE ACTUAL FRAME NUMBERS FOR THE BLOCK THAT YOU WANT i.e. 
+% frames = 10:10:60
+% times = -5:21;                                      % Timepoint in minutes
+frames = 15;                                        % Number of frames to track each particle for
+times = [-1,1:4,6:3:15];                                      % Timepoint in minutes
+gap = 5;                                            % Gap between each analysis frame
 
-runlist = [1,4:9,12:16];                            % Lines in XLS sheet to analyse
 timepoints = 1:length(times);                       % Timepoints to analyse
-frameinterval = 0.5;                                % Time between frames in seconds
-start = round(60 / frameinterval * (times + 1));	% Timepoint in frames
+frameinterval = 0.2;                                % Time between frames in seconds
+start = 75 * (times + 5);                           % Timepoint in frames
 imsize = [2560,2160];                               % Image size in pixels
 pixelsize = 1.43/2560;                              % Pixel size in mm
 direction = 'Reverse';                              % Preview direction (Forward or Reverse)
-dotsize = 15;                                       % Marker size
-pauselength = 0.25;                                 % Time between frames in preview sequence
+dotsize = 25;                                       % Marker size
+pauselength = 0.1;                                  % Time between frames in preview sequence
 
 %% Perform setup
 
@@ -61,8 +66,8 @@ end
 % Read the XLS sheet
 info = ReadS8Data([datapath,experiment.filelist]);
 
-% Randomise the runlist order to blind observer
-runlist = runlist(randperm(length(runlist)));
+% Randomise the experiment.runlist order to blind observer
+experiment.runlist = experiment.runlist(randperm(length(experiment.runlist)));
 
 % Select whether to start or continue an analysis
 button = questdlg('Would you like to continue an analysis?');
@@ -95,9 +100,9 @@ h(1) = figure;
 %% Begin analysis
 
 % Repeat for each line in the XLS sheet
-while m <= length(runlist),
+while m <= length(experiment.runlist),
     
-%     disp(['Current analysis: ',info.image{runlist(m)}])
+%     disp(['Current analysis: ',info.image{experiment.runlist(m)}])
     
     % Repeat for each timepoint
     while t <= length(timepoints),
@@ -112,7 +117,7 @@ while m <= length(runlist),
             framenumber = start(timepoints(t)) + (i-1)*gap + 1;
             
             % Determine the filename
-            filename = sprintf('%s%s%s%s%s%s%.4d%s',datapath,experiment.read,info.image{runlist(m)},FAD_IMAGESET_L,info.imagestart{runlist(m)},FAD_FILENAME_L,framenumber,FAD_FILETYPE_L);
+            filename = sprintf('%s%s%s%s%s%s%.4d%s',datapath,experiment.read,info.image{experiment.runlist(m)},FAD_IMAGESET_L,info.imagestart{experiment.runlist(m)},FAD_FILENAME_L,framenumber,FAD_FILETYPE_L);
 
             % Load the image
             if(exist(filename)),
@@ -151,7 +156,7 @@ while m <= length(runlist),
             for i = 1:frames,
 
                 figure(h(1)), imshow(images(:,:,i));
-                title(['Run: ', num2str(m) ' of ', num2str(length(runlist)),', Timepoint: ', num2str(times(timepoints(t))),' min (',num2str(timepoints(t)),' of ',num2str(max(timepoints)),'), Particle: ', num2str(p), ' of ', num2str(particles), ', Frame: ', num2str(i),' of ', num2str(frames)])
+                title(['Run: ', num2str(m) ' of ', num2str(length(experiment.runlist)),', Timepoint: ', num2str(times(timepoints(t))),' min (',num2str(timepoints(t)),' of ',num2str(max(timepoints)),'), Particle: ', num2str(p), ' of ', num2str(particles), ', Frame: ', num2str(i),' of ', num2str(frames)])
                 
                 % Mark each of the previously selected particles
                 for j = 1:(p-1),
@@ -195,7 +200,7 @@ while m <= length(runlist),
             end
             
             p=p+1;
-            save(MAT,'runlist','timepoints','m','t','p','gap','frames','particles','start','times','data','func','imsize');
+            save(MAT,'experiment.runlist','timepoints','m','t','p','gap','frames','particles','start','times','data','func');
             
         end
         
@@ -236,11 +241,11 @@ while m <= length(runlist),
     
     % Write the results to the XLS and MAT files
     w = waitbar(0,'Saving XLS and MAT');
-    if(xlswrite(XLS,data(:,:),info.imagestart{runlist(m)}))
+    if(xlswrite(XLS,data(:,:),info.imagestart{experiment.runlist(m)}))
         m = m+1;
         t = 1;
         data = zeros(length(times)*particles*frames,12);
-        save(MAT,'runlist','timepoints','m','t','p','gap','frames','particles','start','times','func');
+        save(MAT,'experiment.runlist','timepoints','m','t','p','gap','frames','particles','start','times','func');
     else
         error('Failed to write XLS file! Manually save data');
     end
