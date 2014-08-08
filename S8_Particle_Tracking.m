@@ -25,45 +25,31 @@ clear all; clc;
 % datapath = 'P:/SPring-8/2012 B/MCT/Images/';
 if(strcmp(getenv('COMPUTERNAME'),'GT-DSK-DONNELLE')), datapath = 'I:/SPring-8/2012 B/MCT/Images/'; end
 if(strcmp(getenv('COMPUTERNAME'),'ASPEN')), datapath = 'S:/Temporary/WCH/2012 B/MCT/Images/'; end
+if(strcmp(getenv('COMPUTERNAME'),'THREDBO')), datapath = 'C:/Users/Martin Donnelley/Documents/2012 B/MCT/Images/'; end
 experiment.read = 'FD Corrected/';
 experiment.filelist = 'S8_12B_XU.csv';
-experiment.write = 'Processed/';
+experiment.write = 'Processed/MCT Rate Calculation/R02/';
 
 FAD_IMAGESET_L = 'Low/';
 FAD_FILENAME_L = 'fad_';
 FAD_FILETYPE_L = '.jpg';
 
-particles = 50;                             % Number of particles to track
-frames = 20;                                % Number of frames to track each particle for
-times = [-0.5,1:0.5:2,3:10,12:2:20];        % Timepoint in minutes
-frameinterval = 0.5;                        % Time between frames in seconds
-start = 60 / frameinterval * (times + 1);   % Timepoint in frames
-pixelsize = 1.43/2560;                      % Pixel size in mm
-direction = 'Reverse';                      % Preview direction (Forward or Reverse)
-dotsize = 10;                               % Marker size
-pauselength = 0.25;                         % Time between frames in preview sequence
-type = 'ALL'                                % Data to analyse
+particles = 200;                                    % Number of particles to track
+frames = 10;                                        % Number of frames to track each particle for
+times = [-1,1,2,4,8,12,16];                         % Timepoint in minutes
+gap = 10;                                           % Gap between each analysis frame
+
+runlist = [1,4:9,12:16];                            % Lines in XLS sheet to analyse
+timepoints = 1:length(times);                       % Timepoints to analyse
+frameinterval = 0.5;                                % Time between frames in seconds
+start = round(60 / frameinterval * (times + 1));	% Timepoint in frames
+imsize = [2560,2160];                               % Image size in pixels
+pixelsize = 1.43/2560;                              % Pixel size in mm
+direction = 'Reverse';                              % Preview direction (Forward or Reverse)
+dotsize = 15;                                       % Marker size
+pauselength = 0.25;                                 % Time between frames in preview sequence
 
 %% Perform setup
-
-switch type
-    case 'ALL'
-        gap = 1;                            % Gap between each analysis frame
-        runlist = [1,4:9,12:16];            % Lines in XLS sheet to analyse
-        timepoints = 1:length(times);       % Timepoints to analyse
-    case 'BASELINE'
-        gap = 1;
-        runlist = [1,4:9,12:16];
-        timepoints = 1;
-    case 'HYPERTONIC'
-        gap = 1;
-        runlist = [1,4:8];
-        timepoints = 2:length(times);
-    case 'MANNITOL'
-        gap = 1;
-        runlist = [9,12:16];
-        timepoints = 2:length(times);
-end
 
 switch direction
     case 'Forward'
@@ -100,7 +86,9 @@ switch button
         break;
 end
 
-iptsetpref('ImshowBorder','loose')
+func = mfilename('fullpath');
+
+iptsetpref('ImshowBorder','loose');
 iptsetpref('ImshowInitialMagnification', 35);
 h(1) = figure;
 
@@ -108,6 +96,8 @@ h(1) = figure;
 
 % Repeat for each line in the XLS sheet
 while m <= length(runlist),
+    
+%     disp(['Current analysis: ',info.image{runlist(m)}])
     
     % Repeat for each timepoint
     while t <= length(timepoints),
@@ -119,13 +109,17 @@ while m <= length(runlist),
             waitbar(i/frames,w);
         
             % Calculate the framenumber
-            framenumber = start(timepoints(t)) + (i-1)*gap;
+            framenumber = start(timepoints(t)) + (i-1)*gap + 1;
             
             % Determine the filename
             filename = sprintf('%s%s%s%s%s%s%.4d%s',datapath,experiment.read,info.image{runlist(m)},FAD_IMAGESET_L,info.imagestart{runlist(m)},FAD_FILENAME_L,framenumber,FAD_FILETYPE_L);
-            
+
             % Load the image
-            images(:,:,i) = imread(filename);
+            if(exist(filename)),
+                images(:,:,i) = imread(filename);
+            else
+                images(:,:,i) = uint8(zeros(imsize));
+            end
             
         end
         close(w)
@@ -138,14 +132,14 @@ while m <= length(runlist),
                 
                 tic
                 figure(h(1)), imshow(images(:,:,i));
-                title(['Sequence Preview'],'color','r')
+                title(['Sequence Preview: Frame ',num2str(i)],'color','r')
                 
                 % Mark each of the previously selected particles
                 for j = 1:(p-1),
                     
                     % Add the marker
                     line = (timepoints(t)-1)*frames*particles + (j-1)*frames + i;
-                    rectangle('Position',[data(line,4)-dotsize,data(line,5)-dotsize,2*dotsize,2*dotsize],'Curvature',[1,1],'FaceColor','r');
+                    rectangle('Position',[data(line,4)-dotsize,data(line,5)-dotsize,2*dotsize,2*dotsize],'Curvature',[1,1],'EdgeColor','r');
                     
                 end
                 
@@ -157,14 +151,14 @@ while m <= length(runlist),
             for i = 1:frames,
 
                 figure(h(1)), imshow(images(:,:,i));
-                title(['Timepoint: ', num2str(times(timepoints(t))),' min (',num2str(timepoints(t)),' of ',num2str(max(timepoints)),'), Particle: ', num2str(p), ' of ', num2str(particles), ', Frame: ', num2str(i),' of ', num2str(frames)])
+                title(['Run: ', num2str(m) ' of ', num2str(length(runlist)),', Timepoint: ', num2str(times(timepoints(t))),' min (',num2str(timepoints(t)),' of ',num2str(max(timepoints)),'), Particle: ', num2str(p), ' of ', num2str(particles), ', Frame: ', num2str(i),' of ', num2str(frames)])
                 
                 % Mark each of the previously selected particles
                 for j = 1:(p-1),
                     
                     % Add the marker
                     line = (timepoints(t)-1)*frames*particles + (j-1)*frames + i;
-                    rectangle('Position',[data(line,4)-dotsize,data(line,5)-dotsize,2*dotsize,2*dotsize],'Curvature',[1,1],'FaceColor','r');
+                    rectangle('Position',[data(line,4)-dotsize,data(line,5)-dotsize,2*dotsize,2*dotsize],'Curvature',[1,1],'EdgeColor','r');
                     
                 end
                 
@@ -201,7 +195,7 @@ while m <= length(runlist),
             end
             
             p=p+1;
-            save(MAT,'runlist','timepoints','m','t','p','gap','frames','particles','start','times','data');
+            save(MAT,'runlist','timepoints','m','t','p','gap','frames','particles','start','times','data','func','imsize');
             
         end
         
@@ -246,7 +240,7 @@ while m <= length(runlist),
         m = m+1;
         t = 1;
         data = zeros(length(times)*particles*frames,12);
-        save(MAT,'runlist','timepoints','m','t','p','gap','frames','particles','start','times','data');
+        save(MAT,'runlist','timepoints','m','t','p','gap','frames','particles','start','times','func');
     else
         error('Failed to write XLS file! Manually save data');
     end
