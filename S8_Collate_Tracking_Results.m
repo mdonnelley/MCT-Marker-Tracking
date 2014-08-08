@@ -17,8 +17,15 @@ twentyfive = [];
 for s = 1:length(B_sheets),
     
     data = xlsread([PathName,B],s);
-    baseline = [baseline;data(data(:,cols) > 0, cols)];
     
+    % Get mean MCT rate for each particle
+    for i = 1:max(data(data(:,4) > 0, 2))
+       
+        rate = nanmean(data(data(:,2) == i,10));
+        baseline = [baseline;rate];
+        
+	end
+
 end
 
 [animals,R_IX] = sort(R_sheets);
@@ -27,12 +34,20 @@ for s = 1:length(R_sheets),
     
     IX = find(R_IX == s);
     data = xlsread([PathName,R],s);
-    if(IX <= 8),
-        nine = [nine;data(data(:,cols) > 0, cols)];
-    elseif(IX >= 9 && IX <= 16),
-        twentyfive = [twentyfive;data(data(:,cols) > 0, cols)];
-    elseif(IX >= 17),
-        three = [three;data(data(:,cols) > 0, cols)];
+    
+    % Get mean MCT rate for each particle
+    for i = 1:max(data(data(:,4) > 0, 2))
+        
+        rate = nanmean(data(data(:,2) == i,10));
+        
+        if(IX <= 8),
+            nine = [nine;rate];
+        elseif(IX >= 9 && IX <= 16),
+            twentyfive = [twentyfive;rate];
+        elseif(IX >= 17),
+            three = [three;rate];
+        end
+        
     end
     
 end
