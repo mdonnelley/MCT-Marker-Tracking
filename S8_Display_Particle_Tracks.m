@@ -1,11 +1,11 @@
-% Script to display particle tracks on images
+% Script to display all located particles on images
 
 clear all; clc;
 
 datapath = 'I:/SPring-8/2011 B/20XU/MCT/Images/';
 experiment.read = 'FD Corrected/';
 experiment.filelist = 'S8_2011B.csv';
-experiment.write = 'Processed/Particle Tracks/';
+experiment.write = 'Processed/Particle Movies/';
 
 FAD_IMAGESET_L = 'Low/';
 FAD_FILENAME_L = '_fad_';
@@ -23,45 +23,44 @@ for s = 1:length(sheets),
     
     data = xlsread(XLS,s);
     
+    % Set start frame count (21 for CONTROL and RX, 1 for baseline)
+    count = 1;
+    
     % Repeat for each timepoint
     for t = timepoints,
         
-        % Load the first image at that timepoint
-        filename = sprintf('%s%s%s/%s%s%s%.4d%s',datapath,experiment.read,sheets{s}(7:10),FAD_IMAGESET_L,sheets{s},FAD_FILENAME_L,start(t),FAD_FILETYPE_L);
-        im = imread(filename);
-        im = repmat(im,[1 1 3]);
-
-        % Determine the lines in the array for this timepoint
-        blockstart = (t-1)*frames*particles + 1;
-        blockfinish = t*frames*particles;
-        
-        % Add the line tracks
-        shapeInserter = vision.ShapeInserter('Shape','Lines','BorderColor','Custom','CustomBorderColor',[255 255 0]);
-        shape = reshape(data(blockstart:blockfinish,4:5)',[2*frames,particles])';
-        for i = 1:size(shape,1),
-            currentShape = shape(i,:);
-            currentShape(isnan(currentShape)) = [];
-            if(length(currentShape) >= 4),
-                im = step(shapeInserter, im, int32(currentShape));
-            end
+        % Load each of the images at that timepoint
+        for i = 1:frames,
+            
+            % Calculate the framenumber
+            framenumber = start(t) + (i-1)*gap;
+            
+            % Determine the filename
+            filename = sprintf('%s%s%s/%s%s%s%.4d%s',datapath,experiment.read,sheets{s}(7:10),FAD_IMAGESET_L,sheets{s},FAD_FILENAME_L,framenumber,FAD_FILETYPE_L)
+            
+            % Load the image
+            im = imread(filename);
+            im = repmat(im,[1 1 3]);
+            
+            % Determine the lines in the array for this timepoint
+            blockstart = (t-1)*frames*particles + 1;
+            blockfinish = t*frames*particles;
+            
+            % Add the selected points
+%             markerInserter = vision.MarkerInserter ('Shape','X-mark','Size',10,'BorderColor','Custom','CustomBorderColor',[0 255 0]);
+            markerInserter = vision.MarkerInserter ('Shape','Circle','Size',8,'Fill',1,'FillColor','Custom','CustomFillColor',[255 0 0]);
+            marker = int32(data(blockstart+i-1:frames:blockfinish,4:5));
+            im = step(markerInserter, im, marker);
+            
+            % Write the image
+            filename = sprintf('%s%s%s%s%.3d%s',datapath,experiment.write,sheets{s},'_F',count,FAD_FILETYPE_L);
+            imwrite(im,filename);
+            
+            count = count + 1;
+            
         end
-        
-        % Add the selected points
-%         markerInserter = vision.MarkerInserter ('Shape','X-mark','Size',10,'BorderColor','Custom','CustomBorderColor',[255 0 0]);
-        markerInserter = vision.MarkerInserter ('Shape','Circle','Size',10,'Fill',1,'FillColor','Custom','CustomFillColor',[255 0 0]);
-        marker = int32(data(blockstart:blockfinish,4:5));
-        im = step(markerInserter, im, marker);
-        
-        markerInserter = vision.MarkerInserter ('Shape','Circle','Size',10,'Fill',1,'FillColor','Custom','CustomFillColor',[0 255 0]);
-        marker = int32(data(blockstart:frames:blockfinish,4:5));
-        im = step(markerInserter, im, marker);
-        
-        % Write the image
-        filename = sprintf('%s%s%s%s%.2d%s',datapath,experiment.write,sheets{s},'_T',t,FAD_FILETYPE_L);
-        imwrite(im,filename);
-
     end
-
+    
 end
 
 close all; clc;
