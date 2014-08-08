@@ -20,69 +20,70 @@
 
 clear all; clc;
 
-%% Analysis specific parameters
+%% File parameters
 
-if(strcmp(getenv('COMPUTERNAME'),'GT-DSK-DONNELLE')), datapath = 'P:/SPring-8/2014 A/MCT/Images/'; end
-if(strcmp(getenv('COMPUTERNAME'),'ASPEN')), datapath = 'S:/Temporary/WCH/2014 A/MCT/Images/'; end
-if(strcmp(getenv('COMPUTERNAME'),'THREDBO')), datapath = 'C:/Users/Martin Donnelley/Documents/2014 A/MCT/Images/'; end
-experiment.read = 'FD Corrected/';
-experiment.filelist = 'S8_14A_XU.csv';
-experiment.write = 'Processed/MCT Rate Calculation/';
+if(strcmp(getenv('COMPUTERNAME'),'GT-DSK-DONNELLE')), expt.file.datapath = 'P:/'; end
+if(strcmp(getenv('COMPUTERNAME'),'ASPEN')), expt.file.datapath = 'S:/Temporary/WCH/'; end
+if(strcmp(getenv('COMPUTERNAME'),'THREDBO')), expt.file.datapath = 'C:/Users/Martin Donnelley/Documents/'; end
 
-FAD_IMAGESET_L = 'Low/';
-FAD_FILENAME_L = 'fad_';
-FAD_FILETYPE_L = '.jpg';
+expt.file.read = [expt.file.datapath,'SPring-8/2014 A/MCT/Images/FD Corrected/'];
+expt.file.write = [expt.file.datapath,'SPring-8/2014 A/MCT/Images/Processed/MCT Rate Calculation/'];
+expt.file.filelist = [expt.file.datapath,'SPring-8/2014 A/MCT/Images/S8_14A_XU.csv'];
+expt.file.runlist = [2:5,7:11,16:17,19:27];
+expt.file.FAD_path_low = 'Low/';
+expt.file.FAD_file_low = 'fad_';
+expt.file.FAD_type_low = '.jpg';
 
-particles = 200;                                    % Number of particles to track
-frames = 20;                                        % Number of frames to track each particle for (up to a total of blockimages per block)
-times = [0,3,5:11];                                 % Timepoint in minutes
-gap = 5;                                            % Gap between each analysis frame
-startframe = 10;                                    % Frame number to start with
+%% Timing parameters
 
-runlist = [2:5,7:11,16:17,19:27];                   % Lines in XLS sheet to analyse
-timepoints = 1:length(times);                       % Timepoints to analyse
-frameinterval = 0.2;                                % Time between frames in seconds
-blockimages = 40;                                   % Number of images per block
-start = blockimages * times + startframe;           % Timepoint in frames
-imsize = [2560,2160];                               % Image size in pixels
-pixelsize = 1.43/2560;                              % Pixel size in mm
-direction = 'Reverse';                              % Preview direction (Forward or Reverse)
-dotsize = 35;                                       % Marker size (20 for small particles
-pauselength = 0.1;                                  % Time between frames in preview sequence
+expt.timing.frameinterval = 0.2;                                            % Time between frames in seconds
+expt.timing.blockimages = 40;                                               % Number of images per block
+expt.timing.imsize = [2560,2160];                                           % Image size in pixels
+expt.timing.pixelsize = 1.43/2560;                                          % Pixel size in mm
+
+%% Analysis parameters
+
+expt.analysis.particles = 200;                                              % Number of particles to track
+expt.analysis.frames = 20;                                                  % Number of frames to track each particle for (up to a total of blockimages per block)
+expt.analysis.times = [0,3,5:11];                                           % Timepoint in minutes
+expt.analysis.gap = 5;                                                      % Gap between each analysis frame
+expt.analysis.startframe = 10;                                              % Frame number to start with
+expt.analysis.timepoints = 1:length(expt.analysis.times);                   % Timepoints to analyse
+expt.analysis.starttimes = expt.timing.blockimages * expt.analysis.times + expt.analysis.startframe;           % Timepoint in frames
+
+direction = 'Reverse';                                                      % Preview direction (Forward or Reverse)
+dotsize = 35;                                                               % Marker size (20 for small particles and 35 for large)
+pauselength = 0.1;                                                          % Time between frames in preview sequence
 
 %% Perform setup
 
 switch direction
     case 'Forward'
-        preview = 1:frames;
+        preview = 1:expt.analysis.frames;
     case 'Reverse'
-        preview = frames:-1:1;
+        preview = expt.analysis.frames:-1:1;
 end
-
-% Read the XLS sheet
-info = ReadS8Data([datapath,experiment.filelist]);
-
-% Randomise the runlist order to blind observer
-runlist = runlist(randperm(length(runlist)));
 
 % Select whether to start or continue an analysis
 button = questdlg('Would you like to continue an analysis?');
 
 switch button    
     case 'Yes'
-        [FileName,PathName] = uigetfile('*.mat','Select a file',[datapath,experiment.write,'/MCT Rate Calculation*.mat']);
+        [FileName,PathName] = uigetfile('*.mat','Select a file',[expt.file.datapath,expt.file.write,'/MCT Rate Calculation*.mat']);
         MAT = [PathName,FileName];
         XLS = [MAT(1:length(MAT)-4),'.xls'];
         load(MAT);    
     case 'No'
         datetime = datestr(now,'yyyy-mmm-dd HH-MM-SS');
         initials = inputdlg('Please enter your initials (i.e. MD)','User ID');
-        MAT = [datapath,experiment.write,'MCT Rate Calculation ',datetime,' ',char(initials),'.mat'];
-        XLS = [datapath,experiment.write,'MCT Rate Calculation ',datetime,' ',char(initials),'.xls'];
+        MAT = [expt.file.write,'MCT Rate Calculation ',datetime,' ',char(initials),'.mat'];
+        XLS = [expt.file.write,'MCT Rate Calculation ',datetime,' ',char(initials),'.xls'];
         m = 1;
         t = 1;
         p = 1;
-        data = zeros(length(times)*particles*frames,12);
+        data = zeros(length(expt.analysis.times)*expt.analysis.particles*expt.analysis.frames,12);
+        expt.info = ReadS8Data(expt.file.filelist);
+        expt.file.runlist = expt.file.runlist(randperm(length(expt.file.runlist))); % Randomise the runlist order to blind observer
     case 'Cancel'
         break;
 end
@@ -96,37 +97,42 @@ h(1) = figure;
 %% Begin analysis
 
 % Repeat for each line in the XLS sheet
-while m <= length(runlist),
-    
-%     disp(['Current analysis: ',info.image{runlist(m)}])
-    
+while m <= length(expt.file.runlist),
+
     % Repeat for each timepoint
-    while t <= length(timepoints),
+    while t <= length(expt.analysis.timepoints),
 
         % Load each of the images at that timepoint
         w = waitbar(0,'Loading image sequence');
-        for i = 1:frames,
+        for i = 1:expt.analysis.frames,
             
-            waitbar(i/frames,w);
+            waitbar(i/expt.analysis.frames,w);
         
             % Calculate the framenumber
-            framenumber = start(timepoints(t)) + (i-1)*gap + 1;
+            framenumber = expt.analysis.starttimes(expt.analysis.timepoints(t)) + (i-1)*expt.analysis.gap + 1;
             
             % Determine the filename
-            filename = sprintf('%s%s%s%s%s%s%.4d%s',datapath,experiment.read,info.image{runlist(m)},FAD_IMAGESET_L,info.imagestart{runlist(m)},FAD_FILENAME_L,framenumber,FAD_FILETYPE_L);
+            filename = sprintf('%s%s%s%s%s%.4d%s',...
+                expt.file.read,...
+                expt.info.image{expt.file.runlist(m)},...
+                expt.file.FAD_path_low,...
+                expt.info.imagestart{expt.file.runlist(m)},...
+                expt.file.FAD_file_low,...
+                framenumber,...
+                expt.file.FAD_type_low);
 
             % Load the image
             if(exist(filename)),
                 images(:,:,i) = imread(filename);
             else
-                images(:,:,i) = uint8(zeros(imsize));
+                images(:,:,i) = uint8(zeros(expt.timing.imsize));
             end
             
         end
         close(w)
         
         % Repeat for each of the particles
-        while p <= particles,
+        while p <= expt.analysis.particles,
             
             % Display the image series to allow user to visualise the particles
             for i = preview,
@@ -139,7 +145,7 @@ while m <= length(runlist),
                 for j = 1:(p-1),
                     
                     % Add the marker
-                    line = (timepoints(t)-1)*frames*particles + (j-1)*frames + i;
+                    line = (expt.analysis.timepoints(t)-1)*expt.analysis.frames*expt.analysis.particles + (j-1)*expt.analysis.frames + i;
                     rectangle('Position',[data(line,4)-dotsize,data(line,5)-dotsize,2*dotsize,2*dotsize],'Curvature',[1,1],'EdgeColor','r');
                     
                 end
@@ -149,46 +155,49 @@ while m <= length(runlist),
             end
             
             % Select the particles
-            for i = 1:frames,
+            for i = 1:expt.analysis.frames,
 
                 figure(h(1)), imshow(images(:,:,i));
-                title(['Run: ', num2str(m) ' of ', num2str(length(runlist)),', Timepoint: ', num2str(times(timepoints(t))),' min (',num2str(timepoints(t)),' of ',num2str(max(timepoints)),'), Particle: ', num2str(p), ' of ', num2str(particles), ', Frame: ', num2str(i),' of ', num2str(frames)])
+                title(['Run: ', num2str(m) ' of ', num2str(length(expt.file.runlist)),', ',...
+                    'Timepoint: ', num2str(expt.analysis.timepoints(t)),' of ',num2str(max(expt.analysis.timepoints)),', ',...
+                    'Particle: ', num2str(p), ' of ', num2str(expt.analysis.particles), ', ',...
+                    'Frame: ', num2str(i),' of ', num2str(expt.analysis.frames)])
                 
                 % Mark each of the previously selected particles
                 for j = 1:(p-1),
                     
                     % Add the marker
-                    line = (timepoints(t)-1)*frames*particles + (j-1)*frames + i;
+                    line = (expt.analysis.timepoints(t)-1)*expt.analysis.frames*expt.analysis.particles + (j-1)*expt.analysis.frames + i;
                     rectangle('Position',[data(line,4)-dotsize,data(line,5)-dotsize,2*dotsize,2*dotsize],'Curvature',[1,1],'EdgeColor','r');
                     
                 end
                 
                 % Calculate the correct line number in the data array
-                line = (timepoints(t)-1)*frames*particles + (p-1)*frames + i;
-                data(line,1) = times(timepoints(t));
+                line = (expt.analysis.timepoints(t)-1)*expt.analysis.frames*expt.analysis.particles + (p-1)*expt.analysis.frames + i;
+                data(line,1) = expt.analysis.times(expt.analysis.timepoints(t));
                 data(line,2) = p;
-                data(line,3) = start(timepoints(t)) + (i-1)*gap;
+                data(line,3) = expt.analysis.starttimes(expt.analysis.timepoints(t)) + (i-1)*expt.analysis.gap;
                 [data(line,4),data(line,5),userinput] = ginput(1);
                 
                 % Perform action based on which button is pressed
                 switch userinput,
                     % Middle button (remove all data for that particle and REPLAY)
                     case 2
-                        data(line-i+1:line-i+frames,4:5)=-10;
+                        data(line-i+1:line-i+expt.analysis.frames,4:5)=-10;
                         p=p-1;
                         break;
                     % Right button (Finish current particle and start next PARTICLE)
                     case 3
-                        data(line:line-i+frames,4:5)=-10;
+                        data(line:line-i+expt.analysis.frames,4:5)=-10;
                         break;
                     % Zero key (Finish current particle and start next TIMEPOINT)
                     case 48
-                        p = particles;
-                        data(line:line-i+frames,4:5)=-10;
+                        p = expt.analysis.particles;
+                        data(line:line-i+expt.analysis.frames,4:5)=-10;
                         break;
                     % One key (Remove current and previous particles and start previous particle)
                     case 49
-                        data(line-i+1:line-i+frames,4:5)=-10;
+                        data(line-i+1:line-i+expt.analysis.frames,4:5)=-10;
                         if(p > 1), p=p-2; else p=p-1; end
                         break;
                 end
@@ -196,7 +205,7 @@ while m <= length(runlist),
             end
             
             p=p+1;
-            save(MAT,'runlist','timepoints','m','t','p','gap','frames','particles','start','times','data','func');
+            save(MAT,'expt','m','t','p');
             
         end
         
@@ -216,19 +225,19 @@ while m <= length(runlist),
     x = data(:,4) - circshift(data(:,4),[1 0]);
     y = data(:,5) - circshift(data(:,5),[1 0]);
     data(:,6)=sqrt(x.^2 + y.^2);
-    data(:,7)=data(:,6)*pixelsize;
+    data(:,7)=data(:,6)*expt.timing.pixelsize;
     data(:,8)=dt;
-    data(:,9)=data(:,8)*frameinterval/60;
+    data(:,9)=data(:,8)*expt.timing.frameinterval/60;
     data(:,10)=data(:,7)./data(:,9);
     
     % Remove the data from the first particle in each sequence
-    data(1:frames:length(times)*particles*frames,6:10) = NaN;
+    data(1:expt.analysis.frames:length(expt.analysis.times)*expt.analysis.particles*expt.analysis.frames,6:10) = NaN;
     
     % Calculate mean and standard deviation data for each timepoint
-    for t = timepoints,
+    for t = expt.analysis.timepoints,
         
-        blockstart = (t-1)*frames*particles + 1;
-        blockfinish = t*frames*particles;
+        blockstart = (t-1)*expt.analysis.frames*expt.analysis.particles + 1;
+        blockfinish = t*expt.analysis.frames*expt.analysis.particles;
         data(blockstart,11) = nanmean(data(blockstart:blockfinish,10));
         data(blockstart,12) = nanstd(data(blockstart:blockfinish,10));
         data(blockstart,13) = nanmedian(data(blockstart:blockfinish,10));
@@ -237,11 +246,11 @@ while m <= length(runlist),
     
     % Write the results to the XLS and MAT files
     w = waitbar(0,'Saving XLS and MAT');
-    if(xlswrite(XLS,data(:,:),info.imagestart{runlist(m)}))
+    if(xlswrite(XLS,data(:,:),expt.info.imagestart{expt.file.runlist(m)}))
         m = m+1;
         t = 1;
-        data = zeros(length(times)*particles*frames,12);
-        save(MAT,'runlist','timepoints','m','t','p','gap','frames','particles','start','times','func');
+        data = zeros(length(expt.analysis.times)*expt.analysis.particles*expt.analysis.frames,12);
+        save(MAT,'expt','m','t','p');
     else
         error('Failed to write XLS file! Manually save data');
     end
