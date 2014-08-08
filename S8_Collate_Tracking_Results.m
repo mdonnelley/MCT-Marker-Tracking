@@ -1,10 +1,14 @@
-% Script to collate data about mean MCT rate in each animal
+% Script to collate data about number of particles in each animal
 
 PathName = 'I:/SPring-8/2012 A/20XU/MCT/Images/Processed/MCT Rate Calculation/R01/';
-cols = 11:12;
 
-B = 'MCT Rate Calculation 2013-Jul-29 10-52-28 MD Baseline.xls';
-R = 'MCT Rate Calculation 2013-Jul-29 13-44-21 MD Repeat.xls';
+baseline_IX = 1:24;
+three_IX = 17:24;
+nine_IX = 9:16;
+twentyfive_IX = 1:8;
+
+B = 'Particle Count 2013-Jul-30 10-34-23 Baseline.xls';
+R = 'Particle Count 2013-Jul-30 11-59-36 Repeat';
 
 [B_status,B_sheets] = xlsfinfo([PathName,B]);
 [R_status,R_sheets] = xlsfinfo([PathName,R]);
@@ -13,11 +17,9 @@ R = 'MCT Rate Calculation 2013-Jul-29 13-44-21 MD Repeat.xls';
 
 for s = 1:length(B_sheets),
     
-    IX = find(B_IX == s);
+    IX = find(strcmp(animals,B_sheets(s)));
     data = xlsread([PathName,B],s);
-    particles = max(data((data(:,4) > 0) & (data(:,5) > 0),2));
-    if(isempty(particles)), particles=0; end
-    B_stats(IX,:) = [data(1,cols),particles];
+    B_counts(IX) = size(data,1);
     
 end
 
@@ -25,13 +27,13 @@ end
 
 for s = 1:length(R_sheets),
     
-    IX = find(R_IX == s);
+    IX = find(strcmp(animals,R_sheets(s)));
     data = xlsread([PathName,R],s);
-    particles = max(data((data(:,4) > 0) & (data(:,5) > 0),2));
-    if(isempty(particles)), particles=0; end
-    R_stats(IX,:) = [data(1,cols),particles];
+    R_counts(IX) = size(data,1);
     
 end
 
-output = [B_stats,R_stats];
-output(isnan(output))=0)
+B_counts(baseline_IX)'
+R_counts(three_IX)'
+R_counts(nine_IX)'
+R_counts(twentyfive_IX)'
