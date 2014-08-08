@@ -1,44 +1,107 @@
 % Script to manually track movement of lead between adjacent frames
+%
+% NOTE: Track only particles that are moving. Stationary particles should
+% be excluded.
+%
+% BUTTON ASSIGNMENT: 
+%
+%   LEFT MOUSE:     Select (and track) a particle.
+%
+%   MIDDLE MOUSE:	Replay sequence
+%                   Remove any selected points for the current particle
+%
+%   RIGHT MOUSE:	Finish tracking the current particle and begin the next PARTICLE
+%                   NOTE: This click is not counted as a selection
+%
+%   ZERO KEY:       Finish tracking the current particle and begin the next TIMEPOINT
+%
+%   ONE KEY:        Remove current and previous particles and start previous particle
+%
 
 clear all; clc;
 
-datapath = 'P:/SPring-8/';
-experiment.read = '2011 B/20XU/MCT/Images/FD Corrected/';
-experiment.filelist = '2011 B/20XU/MCT/Images/2011B Data.csv';
-experiment.write = '2011 B/20XU/MCT/Images/Matlab/Particle Tracks/';
-XLS = ['I:/SPring-8/2011 B/20XU/MCT/Images/Matlab/MCT Rate Calculation ',datestr(now,'yyyy-mmm-dd HH-MM-SS'),'.xls'];
+%% Analysis specific parameters
+
+% datapath = 'P:/SPring-8/2011 B/20XU/MCT/Images/';
+datapath = 'I:/SPring-8/2011 B/20XU/MCT/Images/';
+% datapath = 'S:/Temporary/WCH/2011 B/20XU/MCT/Images/';
+experiment.read = 'FD Corrected/';
+experiment.filelist = 'S8_2011B.csv';
+experiment.write = 'Processed/';
 
 FAD_IMAGESET_L = 'Low/';
+% FAD_FILENAME_L = 'fad_';
 FAD_FILENAME_L = '_fad_';
 FAD_FILETYPE_L = '.jpg';
 
-% experiment.runlist = [4:6,8,10:12,14,16:19];	% ALL
-% experiment.runlist = [4,6,17:19];             % BASELINE
-experiment.runlist = [5,8,10:12,14,16];         % TREATMENT
+particles = 50;             % Number of particles to track
+frames = 10;                % Number of frames to track each particle for
+times = -2.5:2:17.5;        % Timepoint in minutes
+start = 30 * times + 85;    % Timepoint in frames
+frameinterval = 5.5;        % Time between frames in seconds
+pixelsize = 1.43/2560;      % Pixel size in mm
+direction = 'Reverse';
 
-start = 10:60:615; times = -2.5:2:17.5;
-% analyse = 1:length(start);                      % ALL
-% analyse = 1:2;                                  % BASELINE
-analyse = 3:length(start);                      % TREATMENT
+type = 'TREATMENT'
 
-gap = 1;
-frames = 10;
-repeat = 25;
-dotsize = 10;
-pauselength = 0.25;
+switch type
+    case 'ALL'
+        gap = 1;            % Gap between each analysis frame
+        runlist = [4:6,8,10:12,14,16:19];
+        timepoints = 1:length(start);
+    case 'BASELINE'
+        gap = 5;            % NOTE: Make sure gap*frames < start(2)-start(1)
+        runlist = [4:6,8,10:12,14,16:19];
+        timepoints = 1:2;
+    case 'TREATMENT'
+        gap = 1;
+        runlist = 11;%[5,8,10:12,14,16];
+        timepoints = 3:length(start);
+    case 'CONTROL'
+        gap = 5;
+        runlist = [4,6,17:19];
+        timepoints = 3:length(start);
+end
+
+dotsize = 10;               % Marker size
+pauselength = 0.25;         % Time between frames in preview sequence
+
+%% Begin analysis
 
 info = ReadS8Data([datapath,experiment.filelist]);
+
+% Randomise the runlist order to blind observer
+runlist = runlist(randperm(length(runlist)));
+
+% Select whether to start or continue an analysis
+button = questdlg('Would you like to continue an analysis?');
+
+switch button    
+    case 'Yes'
+        [FileName,PathName] = uigetfile('*.mat','Select a file',[datapath,experiment.write,'/MCT Rate Calculation*.mat'])
+        MAT = [PathName,FileName];
+        XLS = [MAT(1:length(MAT)-4),'.xls'];
+        load(MAT);
+        runlist(1:find(runlist == m)) = [];
+    case 'No'
+        datetime = datestr(now,'yyyy-mmm-dd HH-MM-SS');
+        initials = inputdlg('Please enter your initials (i.e. MD)','User ID');
+        MAT = [datapath,experiment.write,'MCT Rate Calculation ',datetime,' ',char(initials),'.mat'];
+        XLS = [datapath,experiment.write,'MCT Rate Calculation ',datetime,' ',char(initials),'.xls'];
+    case 'Cancel'
+        break;
+end
 
 h(1) = figure;
 
 %% Get the user selected points and save the data
-for m = experiment.runlist,
+for m = runlist,
 
     clear data;
-    data = zeros(length(times)*repeat*frames,12);
+    data = zeros(length(times)*particles*frames,12);
     
     % Repeat for each timepoint
-    for t = analyse,
+    for t = timepoints,
         
         % Load each of the images at that timepoint
         for i = 1:frames,
@@ -56,21 +119,28 @@ for m = experiment.runlist,
         
         % Repeat for each of the particles
         p = 1;
-        while p <= repeat,
+        while p <= particles,
             
-            % Display the image series in reverse to allow user to visualise the particles
-            for i = frames:-1:1,
+            % Display the image series to allow user to visualise the particles
+            switch direction
+                case 'Forward'
+                    preview = 1:frames;
+                case 'Reverse'
+                    preview = frames:-1:1;
+            end
+            
+            for i = preview,
                 
                 tic
                 
                 figure(h(1)), imshow(images(:,:,i));
-                title(['Reversed Sequence Preview (frame ', num2str(start(t)+(i-1)*gap),')'],'color','r')
+                title(['Sequence Preview'],'color','r')
                 
                 % Mark each of the previously selected particles
                 for j = 1:(p-1),
                     
                     % Add the marker
-                    line = (t-1)*frames*repeat + (j-1)*frames + i;
+                    line = (t-1)*frames*particles + (j-1)*frames + i;
                     rectangle('Position',[data(line,4)-dotsize,data(line,5)-dotsize,2*dotsize,2*dotsize],'Curvature',[1,1],'FaceColor','r');
                     
                 end
@@ -83,46 +153,57 @@ for m = experiment.runlist,
             for i = 1:frames,
 
                 figure(h(1)), imshow(images(:,:,i));
-                title([info.imagestart{m}, ' - Timepoint: t = ', num2str(times(t)), ' min (frame ', num2str(start(t)+(i-1)*gap),') - Particle number: ', num2str(p), ' of ', num2str(repeat)])
+                title(['Timepoint: ', num2str(times(t)),' min (',num2str(t),' of ',num2str(max(timepoints)),'), Particle: ', num2str(p), ' of ', num2str(particles), ', Frame: ', num2str(i),' of ', num2str(frames)])
                 
                 % Mark each of the previously selected particles
                 for j = 1:(p-1),
                     
                     % Add the marker
-                    line = (t-1)*frames*repeat + (j-1)*frames + i;
+                    line = (t-1)*frames*particles + (j-1)*frames + i;
                     rectangle('Position',[data(line,4)-dotsize,data(line,5)-dotsize,2*dotsize,2*dotsize],'Curvature',[1,1],'FaceColor','r');
                     
                 end
                 
                 % Calculate the correct line number in the data array
-                line = (t-1)*frames*repeat + (p-1)*frames + i;
+                line = (t-1)*frames*particles + (p-1)*frames + i;
                 data(line,1) = times(t);
                 data(line,2) = p;
                 data(line,3) = start(t) + (i-1)*gap;
-                [data(line,4),data(line,5),button] = ginput(1);
+                [data(line,4),data(line,5),userinput] = ginput(1);
                 
                 % Perform action based on which button is pressed
-                switch button,
-                    
+                switch userinput,
                     % Middle button (remove all data for that particle)
                     case 2
                         data(line-i+1:line-i+frames,4:5)=-10;
                         p=p-1;
                         break;
-                    % Right button (stop acquiring data for that particle)
+                    % Right button (Finish current particle and start next PARTICLE)
                     case 3
                         data(line:line-i+frames,4:5)=-10;
                         break;
-                        
+                    % Zero key (Finish current particle and start next TIMEPOINT)
+                    case 48
+                        p = particles;
+                        data(line:line-i+frames,4:5)=-10;
+                        break;
+                    % One key (Remove current and previous particles and start previous particle)
+                    case 49
+                        data(line-i+1:line-i+frames,4:5)=-10;
+                        if(p > 1), p=p-2; else p=p-1; end
+                        break;
                 end
   
             end
             p=p+1;
             
         end
-
+        
     end
-
+    
+    % Record what's been analysed
+    save(MAT,'runlist','m','timepoints','gap','frames','particles','start','times');
+    
     % Remove any data from selections outside the image area
     data(data(:,4) < 0,4:10) = NaN;
     data(data(:,4) >  size(images(:,:,i),2),4:10) = NaN;
@@ -134,71 +215,27 @@ for m = experiment.runlist,
     x = data(:,4) - circshift(data(:,4),[1 0]);
     y = data(:,5) - circshift(data(:,5),[1 0]);
     data(:,6)=sqrt(x.^2 + y.^2);
-    data(:,7)=data(:,6)*1.43/2560;
+    data(:,7)=data(:,6)*pixelsize;
     data(:,8)=dt;
-    data(:,9)=data(:,8)*0.5/60;
+    data(:,9)=data(:,8)*frameinterval/60;
     data(:,10)=data(:,7)./data(:,9);
     
     % Remove the data from the first particle in each sequence
-    data(1:frames:length(times)*repeat*frames,6:10) = NaN;
+    data(1:frames:length(times)*particles*frames,6:10) = NaN;
     
     % Calculate mean and standard deviation data for each timepoint
-    for t = analyse,
+    for t = timepoints,
         
-        blockstart = (t-1)*frames*repeat + 1;
-        blockfinish = t*frames*repeat;
+        blockstart = (t-1)*frames*particles + 1;
+        blockfinish = t*frames*particles;
         data(blockstart,11) = nanmean(data(blockstart:blockfinish,10));
         data(blockstart,12) = nanstd(data(blockstart:blockfinish,10));
+        data(blockstart,13) = nanmedian(data(blockstart:blockfinish,10));
         
     end
     
     % Write the results to the XLS file
     xlswrite(XLS,data(:,:),info.imagestart{m})
-
-end
-
-%% Write the annotated images
-for m = experiment.runlist,
-    
-%     data = xlsread(['I:\SPring-8\2011 B\20XU\MCT\Images\Matlab\','MCT Rate Calculation 2013-Feb-14 09-12-10','.xls'],info.imagestart{m});
-    data = xlsread(XLS,info.imagestart{m});
-    
-    % Repeat for each timepoint
-    for t = analyse,
-        
-        % Load the first image at that timepoint
-        filename = sprintf('%s%s%s%s%s%s%.4d%s',datapath,experiment.read,info.image{m},FAD_IMAGESET_L,info.imagestart{m},FAD_FILENAME_L,start(t),FAD_FILETYPE_L);
-        im = imread(filename);
-        
-        % CHANGE THIS TO REDUCE THE IMAGE SIZE SO THE MARKS ARE LARGER?
-        
-        im = repmat(im,[1 1 3]);
-
-        % Determine the lines in the array for this timepoint
-        blockstart = (t-1)*frames*repeat + 1;
-        blockfinish = t*frames*repeat; 
-        
-        % Add the line tracks
-        shapeInserter = vision.ShapeInserter('Shape','Lines','BorderColor','Custom','CustomBorderColor',[255 255 0]);
-        shape = reshape(data(blockstart:blockfinish,4:5)',[2*frames,repeat])';
-        for i = 1:size(shape,1),
-            currentShape = shape(i,:);
-            currentShape(isnan(currentShape)) = [];
-            if(length(currentShape) >= 4),
-                im = step(shapeInserter, im, int32(currentShape));
-            end
-        end
-        
-        % Add the selected points
-        markerInserter = vision.MarkerInserter ('Shape','X-mark','Size',10,'BorderColor','Custom','CustomBorderColor',[255 0 0]);
-        marker = int32(data(blockstart:blockfinish,4:5));
-        im = step(markerInserter, im, marker);
-        
-        % Write the image
-        filename = sprintf('%s%s%s%s%.1f%s%s','I:/SPring-8/',experiment.write,info.imagestart{m},'_',times(t),'_min',FAD_FILETYPE_L);
-        imwrite(im,filename);
-
-    end
 
 end
 
