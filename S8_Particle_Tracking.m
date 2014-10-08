@@ -1,5 +1,3 @@
-function S8_Particle_Tracking(experiment)
-
 % Script to manually track movement of lead between adjacent frames
 %
 % NOTE 1: Track only particles that are moving. Stationary particles should
@@ -23,35 +21,48 @@ function S8_Particle_Tracking(experiment)
 
 %% Perform setup
 
-eval(experiment);
-expt.info = ReadS8Data(expt.file.filelist);
-pauselength = 0.1;                                                                      % Time between frames in preview sequence
-preview = expt.tracking.frames:-1:1;                                                    % Set preview to show in reverse direction
-starttimes = expt.timing.blockimages * expt.tracking.times + expt.tracking.startframe;  % Set the start timepoints (in frames)
-timepoints = randperm(length(expt.tracking.times));                                     % Randomise the timepoints to analyse
+% Set the base pathname for the current machine
+setbasepath;
 
 % Select whether to start or continue an analysis
 button = questdlg('Would you like to continue an analysis?');
+
 switch button    
     case 'Yes'
-        [filename,pathname] = uigetfile('*.mat','Select a file',[expt.file.processed,'/MCT Rate Calculation*.mat']);
+        
+        [filename,pathname] = uigetfile('*.mat','Select a file',[basepath,'/MCT Rate Calculation*.mat']);
         MAT = [pathname,filename];
         XLS = [MAT(1:length(MAT)-4),'.xls'];
         load(MAT);    
+    
     case 'No'
-        datetime = datestr(now,'yyyy-mmm-dd HH-MM-SS');
-        initials = inputdlg('Please enter your initials (i.e. MD)','User ID');
-        MAT = [expt.file.processed,'MCT Rate Calculation ',datetime,' ',char(initials),'.mat'];
-        XLS = [expt.file.processed,'MCT Rate Calculation ',datetime,' ',char(initials),'.xls'];
-        if(~exist(expt.file.processed)), mkdir(expt.file.processed); end
+        
+        experiment = uigetfile('*.mat','Select an experiment','/*.m');
+        run(experiment);
+        expt.info = ReadS8Data(expt.file.filelist);
+        expt.tracking.runlist = expt.tracking.runlist(randperm(length(expt.tracking.runlist)));     % Randomise the runlist order to blind observer 
+        
+        timepoints = randperm(length(expt.tracking.times));                                         % Randomise the timepoints to analyse
+        data = NaN(length(expt.tracking.times)*expt.tracking.particles*expt.tracking.frames,12);
         m = 1;
         t = 1;
         p = 1;
-        data = NaN(length(expt.tracking.times)*expt.tracking.particles*expt.tracking.frames,12);
-        expt.tracking.runlist = expt.tracking.runlist(randperm(length(expt.tracking.runlist)));     % Randomise the runlist order to blind observer
+        
+        datetime = datestr(now,'yyyy-mmm-dd HH-MM-SS');
+        initials = inputdlg('Please enter your initials (i.e. MD)','User ID');
+        MAT = [basepath,expt.tracking.MCT,'MCT Rate Calculation ',datetime,' ',char(initials),'.mat'];
+        XLS = [basepath,expt.tracking.MCT,'MCT Rate Calculation ',datetime,' ',char(initials),'.xls'];
+        if(~exist([basepath,expt.tracking.MCT])), mkdir([basepath,expt.tracking.MCT]); end
+        
     case 'Cancel'
+        
         return;
+        
 end
+
+pauselength = 0.1;                                                                      % Time between frames in preview sequence
+preview = expt.tracking.frames:-1:1;                                                    % Set preview to show in reverse direction
+starttimes = expt.timing.blockimages * expt.tracking.times + expt.tracking.startframe;  % Set the start timepoints (in frames)
 
 iptsetpref('ImshowBorder','loose');
 iptsetpref('ImshowInitialMagnification', 35);
@@ -76,7 +87,7 @@ while m <= length(expt.tracking.runlist),
             
             % Determine the filename
             filename = sprintf('%s%s%s%s%s%.4d%s',...
-                expt.file.corrected,...
+                [basepath,expt.fad.corrected],...
                 expt.info.image{expt.tracking.runlist(m)},...
                 expt.fad.FAD_path_low,...
                 expt.info.imagestart{expt.tracking.runlist(m)},...
@@ -176,7 +187,7 @@ while m <= length(expt.tracking.runlist),
             p=p+1;
             
             % Save the temporary results in the MAT file
-            save(MAT,'m','t','p','timepoints','data');
+            save(MAT,'expt','m','t','p','timepoints','data');
             
         end
         
@@ -221,9 +232,9 @@ while m <= length(expt.tracking.runlist),
         t = 1;
         data = NaN(length(expt.tracking.times)*expt.tracking.particles*expt.tracking.frames,12);
         if m < length(expt.tracking.runlist),
-            save(MAT,'m','t','p');
+            save(MAT,'expt','m','t','p','timepoints');
         else
-            save(MAT,'expt');
+            save(MAT,'expt','timepoints');
         end
     else
         error('Failed to write XLS file! Manually save data');
@@ -231,5 +242,9 @@ while m <= length(expt.tracking.runlist),
     close(w)
 
 end
+
+% Collate all the data in the XLS file
+S8_Collate_Tracking_Results(XLS);
+S8_Display_Particle_Tracks(XLS);
 
 close all; clc;
