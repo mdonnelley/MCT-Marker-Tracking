@@ -1,88 +1,57 @@
 % Script to collate data about MCT rates in each group
+function S8_Collate_Tracking_Results(XLS)
 
-close all, clear, clc
+% Set the base pathname for the current machine
+setbasepath;
 
-if(strcmp(getenv('COMPUTERNAME'),'GT-DSK-DONNELLE')), datapath = 'I:/SPring-8/2013 B/MCT/Images/Processed/MCT Rate Calculation/R01/'; end
-if(strcmp(getenv('COMPUTERNAME'),'ASPEN')), datapath = 'S:/Temporary/WCH/2013 B/MCT/Images/Processed/MCT Rate Calculation/R01/'; end
+MAT = [XLS(1:length(XLS)-4),'.mat'];
+load(MAT);
 
-particles = 50;                         % Number of particles to track
-frames = 15;                            % Number of frames to track each particle for
-times = -5:-1	% Timepoint in minutes
-bins = 0:0.05:6;
+% Get the sheet names
+[status,sheets] = xlsfinfo(XLS);
 
-C = 'MCT Rate Calculation 2014-Feb-25 08-54-57 MD - C57.xls';
-T = 'MCT Rate Calculation 2014-Feb-25 08-54-57 MD - CF.xls';
+% Pre-allocate the arrays
+average = NaN(length(expt.info.image),length(expt.tracking.times));
+SD = NaN(length(expt.info.image),length(expt.tracking.times));
 
-[C_status,C_sheets] = xlsfinfo([datapath,C]);
-[T_status,T_sheets] = xlsfinfo([datapath,T]);
-
-%% Collate data from XLS sheets
-
-for s = 1:length(C_sheets),
+for s = 1:length(sheets)
     
-    data = xlsread([datapath,C],s);
-    
-    for timepoint = 1:length(times),
-    
-        range = particles*frames*(timepoint-1)+1:particles*frames*timepoint;
-        C_raw(:,timepoint,s) = data(range,10);
-        C_histogram(:,timepoint,s) = hist(C_raw(:,timepoint,s),bins);
- 
+    if ~strcmp(sheets{s},'Sheet1') & ~strcmp(sheets{s},'Sheet2') & ~strcmp(sheets{s},'Sheet3') & ~strcmp(sheets{s},'Average') & ~strcmp(sheets{s},'SD'),
+        
+        % Read each XLS sheet
+        data = xlsread(XLS,sheets{s},'','basic');
+        
+        if ~isempty(data)
+            
+            % Get the summary stats info
+            stats = data(data(:,11) ~= 0,[1,11,12])';
+            
+            % Get the row number
+            m = 1;
+            while ~strcmp(expt.info.imagestart{m},sheets{s}), m = m + 1; end
+            
+            for i = 1:size(stats,2)
+                
+                % Get the column number (in case there is no data for some timepoints)
+                t = find(stats(1,i) == expt.tracking.times);
+                
+                average(m,t) = stats(2,i);
+                SD(m,t) = stats(3,i);
+                
+            end
+            
+        end
+        
     end
     
 end
 
-for s = 1:length(T_sheets),
-    
-    data = xlsread([datapath,T],s);
-    
-    for timepoint = 1:length(times),
-    
-        range = particles*frames*(timepoint-1)+1:particles*frames*timepoint;
-        T_raw(:,timepoint,s) = data(range,10);
-        T_histogram(:,timepoint,s) = hist(T_raw(:,timepoint,s),bins);
- 
-    end
-    
-end
+% Write the mean data back to the XLS sheet
+xlswrite(XLS,expt.info.imagestart,'Average','A2');
+xlswrite(XLS,expt.tracking.times,'Average','B1');
+xlswrite(XLS,average,'Average','B2');
 
-%% Plot data
-
-% plotrange = 21:121;
-% 
-% figure,surf(times, bins(plotrange), sum(C_histogram(plotrange,:,:),3))
-% view(115,45)
-% ylabel('Particle MCT rate (mm/min)')
-% zlabel('Number of particles')
-% xlabel('Timepoint (min)')
-% title('Hypertonic Saline')
-% 
-% figure,surf(times, bins(plotrange), sum(T_histogram(plotrange,:,:),3))
-% view(115,45)
-% ylabel('Particle MCT rate (mm/min)')
-% zlabel('Number of particles')
-% xlabel('Timepoint (min)')
-% title('Mannitol')
-
-% %% Additional stats
-% C_raw(C_raw<1) = NaN;
-% C_raw(C_raw>6) = NaN;
-% T_raw(T_raw<1) = NaN;
-% T_raw(T_raw>6) = NaN;
-C_mean = nanmean(C_raw,1);
-T_mean = nanmean(T_raw,1);
-C_mean(isnan(C_mean)) = 0;
-T_mean(isnan(T_mean)) = 0;
-C_mean = squeeze(C_mean);
-T_mean = squeeze(T_mean);
-
-
-C_mean2 = C_mean;
-C_mean2(C_mean2 == 0) = NaN
-C_mean2=nanmean(C_mean2)
-C_mean2(isnan(C_mean2)) = [];
-
-T_mean2 = T_mean;
-T_mean2(T_mean2 == 0) = NaN
-T_mean2=nanmean(T_mean2)
-T_mean2(isnan(T_mean2)) = [];
+% Write the standard deviation data back to the XLS sheet
+xlswrite(XLS,expt.info.imagestart,'SD','A2');
+xlswrite(XLS,expt.tracking.times,'SD','B1');
+xlswrite(XLS,SD,'SD','B2');
