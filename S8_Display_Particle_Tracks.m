@@ -1,4 +1,9 @@
 % Script to display particle tracks on images
+%
+% This function takes the raw XLS data and draws the particle tracks on the
+% images at the correct timepoints. Only images for which tracking data
+% exist are output.
+
 function S8_Display_Particle_Tracks(XLS)
 
 % Set the base pathname for the current machine
@@ -17,7 +22,7 @@ if ~exist([basepath,[basepath,expt.tracking.tracks]]), mkdir([basepath,expt.trac
 %% Write the annotated images
 for s = 1:length(sheets),
     
-    if ~strcmp(sheets{s},'Sheet1') & ~strcmp(sheets{s},'Sheet2') & ~strcmp(sheets{s},'Sheet3') & ~strcmp(sheets{s},'Average') & ~strcmp(sheets{s},'SD'),
+    if ~strcmp(sheets{s},'Sheet1') & ~strcmp(sheets{s},'Sheet2') & ~strcmp(sheets{s},'Sheet3') & ~strcmp(sheets{s},'Mean') & ~strcmp(sheets{s},'SD') & ~strcmp(sheets{s},'Number'),
         
         % Read the sheet from the XLS file
         data = xlsread(XLS,sheets{s},'','basic');
@@ -35,7 +40,7 @@ for s = 1:length(sheets),
             for t = 1:length(starttimes),
                 
                 % Calculate the framenumber
-                framenumber = starttimes(t) + 10; %% CHANGE FROM 10 to 1
+                framenumber = starttimes(t) + 1;
                 
                 % Determine the filename
                 filename = sprintf('%s%s%s%s%s%.4d%s',...
@@ -55,22 +60,27 @@ for s = 1:length(sheets),
                 for p = unique(data(data(:,1) == trackingtimes(t), 2))'
                   
                     % Get the coordinates of the current particle
-                    coordinates = data((data(:,1) == trackingtimes(t)) & (data(:,2) == p), 4:5);
+                    coordinates = data((data(:,1) == trackingtimes(t)) & (data(:,2) == p) & isfinite(data(:,4)), 4:5);
                     
-                    % Add the line tracks
+                    % Add the X marker showing initial position
+                    markerInserter = vision.MarkerInserter ('Shape','X-mark','Size',10,'BorderColor','Custom','CustomBorderColor',[255 0 0]);
+                    marker = SCALE*int32(coordinates(1,:));
+                    im = step(markerInserter, im, marker);
+                    
+                    % Add the O markers showing subsequent positions
+                    markerInserter = vision.MarkerInserter ('Shape','Circle','Size',2,'Fill',1,'FillColor','Custom','CustomFillColor',[0 0 255]);
+                    marker = SCALE*int32(coordinates(2:size(coordinates,1),:));
+                    im = step(markerInserter, im, marker);
+                    
+                    % Add the line tracks joining the positions
                     shapeInserter = vision.ShapeInserter('Shape','Lines','BorderColor','Custom','CustomBorderColor',[255 255 0]);
                     shape = SCALE * reshape(coordinates',1,2*size(coordinates,1));
                     im = step(shapeInserter, im, int32(shape));
                     
-                    % Add the marker points
-                    markerInserter = vision.MarkerInserter ('Shape','X-mark','Size',10,'BorderColor','Custom','CustomBorderColor',[255 0 0]);
-                    marker = SCALE*int32(coordinates);
-                    im = step(markerInserter, im, marker);
-                    
                 end
                 
                 % Write the image
-                filename = sprintf('%s%s%s%.1f%s%s',basepath,expt.tracking.tracks,sheets{s},'_',trackingtimes(t),'_min',expt.fad.FAD_type_low);
+                filename = sprintf('%s%s%s%s%.1f%s%s',basepath,expt.tracking.tracks,sheets{s},'_',trackingtimes(t),'_min',expt.fad.FAD_type_low);
                 imwrite(im,filename);
                 
             end

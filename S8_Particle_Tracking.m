@@ -1,4 +1,4 @@
-% Script to manually track movement of lead between adjacent frames
+% Script to manually track movement of particles between adjacent frames
 %
 % NOTE 1: Track only particles that are moving. Stationary particles should
 % be excluded.
@@ -16,8 +16,6 @@
 %   ZERO KEY:       Finish tracking the current particle and begin the next TIMEPOINT
 %
 %   ONE KEY:        Remove current and previous particles and start previous particle
-%
-% XLS Columns: timepoint, particle, framenumber, x, y, pixeldistance, mm, frames, min, rate, mean, stdev
 
 %% Perform setup
 
@@ -27,17 +25,17 @@ setbasepath;
 data = [];
 
 % Select whether to start or continue an analysis
-button = questdlg('Would you like to continue an analysis?');
+button = questdlg('Would you like to continue or begin a new analysis?', 'Analysis options', 'Continue', 'New', 'New');
 
 switch button
-    case 'Yes'
+    case 'Continue'
         
         [filename,pathname] = uigetfile('*.mat','Select a file',[basepath,'/MCT Rate Calculation*.mat']);
         MAT = [pathname,filename];
         XLS = [MAT(1:length(MAT)-4),'.xls'];
         load(MAT);    
     
-    case 'No'
+    case 'New'
         
         experiment = uigetfile('*.mat','Select an experiment','/*.m');
         run(experiment);
@@ -55,19 +53,15 @@ switch button
         XLS = [basepath,expt.tracking.MCT,'MCT Rate Calculation ',datetime,' ',char(initials),'.xls'];
         if(~exist([basepath,expt.tracking.MCT])), mkdir([basepath,expt.tracking.MCT]); end
         
-    case 'Cancel'
-        
-        return;
-        
 end
 
 pauselength = 0.1;                                                                      % Time between frames in preview sequence
 starttimes = expt.timing.blockimages * expt.tracking.times + expt.tracking.startframe;  % Set the start timepoints (in frames)
-timepoints = 1:length(expt.tracking.times);                                             % Randomise the timepoints to analyse
+timepoints = 1:length(expt.tracking.times);
 
 iptsetpref('ImshowBorder','loose');
 iptsetpref('ImshowInitialMagnification', 35);
-h(1) = figure;
+h = figure;
 
 %% Begin analysis
 
@@ -113,7 +107,7 @@ while m <= length(expt.tracking.runlist),
             for i = expt.tracking.frames:-1:1,
                 
                 tic
-                figure(h(1)), imshow(images(:,:,i));
+                figure(h), imshow(images(:,:,i));
                 title(['Sequence Preview: Frame ',num2str(i)],'color','r')
                 
                 if ~isempty(data),
@@ -133,7 +127,7 @@ while m <= length(expt.tracking.runlist),
             % Select the particles
             for i = 1:expt.tracking.frames,
 
-                figure(h(1)), imshow(images(:,:,i));
+                figure(h), imshow(images(:,:,i));
                 title(['Run: ', num2str(m) ' of ', num2str(length(expt.tracking.runlist)),', ',...
                     'Timepoint: ', num2str(t),' of ',num2str(length(timepoints)),', ',...
                     'Particle: ', num2str(p), ' of ', num2str(expt.tracking.particles), ', ',...
@@ -230,18 +224,10 @@ while m <= length(expt.tracking.runlist),
         % Remove the data for each new particle or timepoint
         data(data(:,8) ~= expt.tracking.gap,6:10) = NaN;
         
-        % Calculate mean and standard deviation data for each timepoint
-        data(:,11:12) = NaN;
-        [C,ia,ic] = unique(data(:,1));
-        for i = 1:length(C),
-            data(ia(i),11) = nanmean(data(data(:,1) == C(i),10));
-            data(ia(i),12) = nanstd(data(data(:,1) == C(i),10));
-        end
-        
         % Add column headings
         data = [{'Timepoint (min)', 'Particle number', 'Frame number',...
             'x', 'y', 'Distance (pixels)', 'Distance (mm)',...
-            'Frames', 'Time (min)', 'Rate (mm/min)', 'Mean', 'Standard deviation'};...
+            'Frames', 'Time (min)', 'Rate (mm/min)'};...
             num2cell(data)];
         
     end
@@ -266,6 +252,8 @@ while m <= length(expt.tracking.runlist),
     close(w)
 
 end
+
+close(h)
 
 % Collate all the data in the XLS file
 S8_Collate_Tracking_Results(XLS);
