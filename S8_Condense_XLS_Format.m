@@ -10,6 +10,8 @@
 
 function S8_Condense_XLS_Format(XLS)
 
+w = waitbar(0,'Condensing XLS format');
+
 % Get the sheet names
 [status,sheets] = xlsfinfo(XLS);
 
@@ -17,6 +19,8 @@ function S8_Condense_XLS_Format(XLS)
 writename = [XLS(1:length(XLS)-4), ' - Condensed', XLS(length(XLS)-3:length(XLS))];
 
 for s = 1:length(sheets),
+    
+    waitbar(s/length(sheets),w,['Condensing sheet: ',sheets{s}(1:length(sheets{s})-1)]);
     
     if ~strcmp(sheets{s},'Sheet1') & ~strcmp(sheets{s},'Sheet2') & ~strcmp(sheets{s},'Sheet3') & ~strcmp(sheets{s},'Mean') & ~strcmp(sheets{s},'SD') & ~strcmp(sheets{s},'Number'),
         
@@ -52,3 +56,5 @@ for s = 1:length(sheets),
     end
     
 end
+
+close(w)
