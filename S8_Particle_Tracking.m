@@ -1,4 +1,6 @@
-% Script to manually track movement of particles between adjacent frames
+function S8_Particle_Tracking(tracked)
+
+% Function to manually track movement of particles between adjacent frames
 %
 % NOTE 1: Track only particles that are moving. Stationary particles should
 % be excluded.
@@ -16,11 +18,16 @@
 %   ZERO KEY:       Finish tracking the current particle and begin the next TIMEPOINT
 %
 %   ONE KEY:        Remove current and previous particles and start previous particle
+%
+%   X KEY:          Complete the current run and begin the next LINE IN THE XLS
 
 %% Perform setup
 
 % Set the base pathname for the current machine
 setbasepath;
+
+% Set the axis visible for grid lines
+iptsetpref('ImshowAxesVisible','on');
 
 data = [];
 
@@ -55,7 +62,7 @@ switch button
         
 end
 
-pauselength = 0.1;                                                                      % Time between frames in preview sequence
+pauselength = 0.2;                                                                      % Time between frames in preview sequence
 starttimes = expt.timing.blockimages * expt.tracking.times + expt.tracking.startframe;  % Set the start timepoints (in frames)
 timepoints = 1:length(expt.tracking.times);
 
@@ -108,6 +115,8 @@ while m <= length(expt.tracking.runlist),
                 
                 tic
                 figure(h), imshow(images(:,:,i));
+                set(gca,'XTick',[0:250:size(images,2)])
+                grid on
                 title(['Sequence Preview: Frame ',num2str(i)],'color','r')
                 
                 if ~isempty(data),
@@ -128,6 +137,8 @@ while m <= length(expt.tracking.runlist),
             for i = 1:expt.tracking.frames,
 
                 figure(h), imshow(images(:,:,i));
+                set(gca,'XTick',[0:250:size(images,2)])
+                grid on
                 title(['Run: ', num2str(m) ' of ', num2str(length(expt.tracking.runlist)),', ',...
                     'Timepoint: ', num2str(t),' of ',num2str(length(timepoints)),', ',...
                     'Particle: ', num2str(p), ' of ', num2str(expt.tracking.particles), ', ',...
@@ -181,12 +192,18 @@ while m <= length(expt.tracking.runlist),
                         if p < 1, p = 1; end
                         break;
                         
+                    % X key (Finish current particle and start next LINE IN THE XLS)
+                    case 120
+                        p = expt.tracking.particles;
+                        t = length(timepoints);
+                        break;
+                        
                 end
   
             end
 
             % Save the temporary results in the MAT file
-            save(MAT,'expt','m','t','p','data');
+            save(MAT,'expt','m','t','p','data','tracked');
             
         end
         
@@ -241,9 +258,9 @@ while m <= length(expt.tracking.runlist),
         data = [];
         
         if m < length(expt.tracking.runlist),
-            save(MAT,'expt','m','t','p');
+            save(MAT,'expt','m','t','p','tracked');
         else
-            save(MAT,'expt');
+            save(MAT,'expt','tracked');
         end
         
     else
@@ -255,8 +272,9 @@ end
 
 close(h)
 
-% Collate all the data in the XLS file
-S8_Collate_Tracking_Results(XLS);
-S8_Display_Particle_Tracks(XLS);
+% Collate all the data in the XLS file, write particle track images and display histograms
+S8_Collate_Tracking_Results(MAT);
+S8_Display_Particle_Tracks(MAT);
+S8_Plot_MCT_Histogram(MAT)
 
 close all; clc;
