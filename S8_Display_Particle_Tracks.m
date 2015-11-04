@@ -68,13 +68,18 @@ for s = 1:length(sheets),
                         % Get the coordinates of the current particle
                         coordinates = data((data(:,1) == trackingtimes(t)) & (data(:,2) == p) & isfinite(data(:,4)), 4:5);
                         
-                        % Add the X marker showing initial position
-                        markerInserter = vision.MarkerInserter ('Shape','X-mark','Size',10,'BorderColor','Custom','CustomBorderColor',[255 0 0]);
+%                         % Add the X marker showing initial position
+%                         markerInserter = vision.MarkerInserter('Shape','X-mark','Size',20*SCALE,'BorderColor','Custom','CustomBorderColor',[255 0 0]);
+%                         marker = SCALE*int32(coordinates(1,:));
+%                         im = step(markerInserter, im, marker);
+                        
+                        % Add the O markers showing subsequent positions (30 for large and 18 for small)
+                        markerInserter = vision.MarkerInserter('Shape','Circle','Size',18*SCALE,'Fill',1,'FillColor','Custom','CustomFillColor',[255 0 0],'Opacity',0.2);
                         marker = SCALE*int32(coordinates(1,:));
                         im = step(markerInserter, im, marker);
                         
                         % Add the O markers showing subsequent positions
-                        markerInserter = vision.MarkerInserter ('Shape','Circle','Size',2,'Fill',1,'FillColor','Custom','CustomFillColor',[0 0 255]);
+                        markerInserter = vision.MarkerInserter('Shape','Circle','Size',8*SCALE,'Fill',1,'FillColor','Custom','CustomFillColor',[0 0 255],'Opacity',0.5);
                         marker = SCALE*int32(coordinates(2:size(coordinates,1),:));
                         im = step(markerInserter, im, marker);
                         

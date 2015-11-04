@@ -32,6 +32,6 @@ if exist('histogram') == 1,
     
 else
     
-    error('Histogram data not present in MAT file. Run S8_Collate_Tracking_Results first');
+    error('Histogram data not present in MAT file. Run S8_Collate_Histogram first');
     
 end

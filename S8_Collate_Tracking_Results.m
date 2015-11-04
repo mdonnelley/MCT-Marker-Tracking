@@ -44,8 +44,8 @@ for s = 1:length(sheets)
             
             % Exclude stationary particles and those moving outside max/min rates
             data(data(:,10) == 0,10) = NaN;
-            if isfield(expt.tracking,'maxrate'), data(data(:,10) >= expt.tracking(tracked).maxrate,10) = NaN; end
-            if isfield(expt.tracking,'minrate'), data(data(:,10) <= expt.tracking(tracked).minrate,10) = NaN; end
+            if isfield(expt.tracking(tracked),'maxrate') & ~isempty(expt.tracking(tracked).maxrate), data(data(:,10) >= expt.tracking(tracked).maxrate,10) = NaN; end
+            if isfield(expt.tracking(tracked),'minrate') & ~isempty(expt.tracking(tracked).minrate), data(data(:,10) <= expt.tracking(tracked).minrate,10) = NaN; end
             
             % Get the summary stats info for all particles at each timepoint
             stats = [];
