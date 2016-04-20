@@ -6,13 +6,12 @@ function S8_Display_Particle_Tracks(MAT)
 % images at the correct timepoints. Only images for which tracking data
 % exist are output.
 
-w = waitbar(0,'Reading MAT and XLS data');
-
 % Set the base pathname for the current machine
 setbasepath;
 
 SCALE = 0.5;
 
+w = waitbar(0,'Reading MAT and XLS data');
 load(MAT);
 XLS = [MAT(1:length(MAT)-4),'.xls'];
 
@@ -26,7 +25,7 @@ for s = 1:length(sheets),
     
     waitbar(s/length(sheets),w,['Reading sheet: ',sheets{s}(1:length(sheets{s})-1)]);
     
-    if ~strcmp(sheets{s},'Sheet1') & ~strcmp(sheets{s},'Sheet2') & ~strcmp(sheets{s},'Sheet3') & ~strcmp(sheets{s},'Mean') & ~strcmp(sheets{s},'SD') & ~strcmp(sheets{s},'Number'),
+    if ~strcmp(sheets{s},'Sheet1') & ~strcmp(sheets{s},'Sheet2') & ~strcmp(sheets{s},'Sheet3') & ~strcmp(sheets{s},'Mean') & ~strcmp(sheets{s},'SD') & ~strcmp(sheets{s},'Number') & ~strcmp(sheets{s},'Histogram'),
         
         % Read the sheet from the XLS file
         data = xlsread(XLS,sheets{s},'','basic');
@@ -39,15 +38,15 @@ for s = 1:length(sheets),
             
             % Determine the timepoints to analyse
             trackingtimes = unique(data(:,1));
-            starttimes = expt.timing.blockimages * trackingtimes + expt.tracking(tracked).startframe;  % Set the start timepoints (in frames)
+            starttimes = expt.tracking(tracked).blockimages * trackingtimes + expt.tracking(tracked).startframe;  % Set the start timepoints (in frames)
             
             for t = 1:length(starttimes),
                 
                 % Calculate the framenumber
                 framenumber = starttimes(t) + 1;
                 
-                % Determine the filename
-                filename = sprintf('%s%s%s%s%s%.4d%s',...
+                % Determine the imagename
+                imagename = sprintf('%s%s%s%s%s%.4d%s',...
                     [basepath,expt.fad.corrected],...
                     expt.info.image{m},...
                     expt.fad.FAD_path_low,...
@@ -56,10 +55,10 @@ for s = 1:length(sheets),
                     framenumber,...
                     expt.fad.FAD_type_low);
                 
-                if exist(filename),
+                if exist(imagename),
                     
                     % Load and prep the image data
-                    im = imread(filename);
+                    im = imread(imagename);
                     im = repmat(im,[1 1 3]);
                     im = imresize(im,SCALE);
                     
@@ -94,9 +93,17 @@ for s = 1:length(sheets),
                         
                     end
                     
+                    % Determine the imagename
+                    imagename = sprintf('%s%s%s%s%+05.1f%s',...
+                        basepath,...
+                        expt.tracking(tracked).tracks,...
+                        sheets{s},...
+                        '_t',...
+                        trackingtimes(t),...
+                        expt.fad.FAD_type_low);
+                    
                     % Write the image
-                    filename = sprintf('%s%s%s%s%+05.1f%s',basepath,expt.tracking(tracked).tracks,sheets{s},'_t',trackingtimes(t),expt.fad.FAD_type_low);
-                    imwrite(im,filename);
+                    imwrite(im,imagename);
                     
                 end
                 
