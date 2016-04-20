@@ -1,4 +1,4 @@
-function S8_Particle_Tracking(tracked)
+function S8_Particle_Tracking
 
 % Function to manually track movement of particles between adjacent frames
 %
@@ -7,19 +7,19 @@ function S8_Particle_Tracking(tracked)
 %
 % BUTTON ASSIGNMENT: 
 %
-%   LEFT MOUSE:     Select (and track) a particle.
+%   LEFT MOUSE:                 Select and track a particle.
 %
-%   MIDDLE MOUSE:	Replay sequence
-%                   Remove any selected points for the current particle
+%   MIDDLE MOUSE (SPACEBAR):    Replay sequence
+%                               Remove any selected points for the current particle
 %
-%   RIGHT MOUSE:	Finish tracking the current particle and begin the next PARTICLE
-%                   NOTE: This click is not counted as a selection
+%   RIGHT MOUSE (UP ARROW):     Next. Finish tracking the current particle and begin the next PARTICLE
+%                               NOTE: This action is not counted as a selection
 %
-%   ZERO KEY:       Finish tracking the current particle and begin the next TIMEPOINT
+%   RIGHT ARROW:                Move on. Finish tracking the current particle & timepoint and begin the next TIMEPOINT
 %
-%   ONE KEY:        Remove current and previous particles and start previous particle
+%   LEFT ARROW:                 Go back. Remove current and previous particle and start previous particle (Only works in current timepoint)
 %
-%   X KEY:          Complete the current run and begin the next LINE IN THE XLS
+%   X KEY:                      Run / animal no good. Complete the current run and begin the next LINE IN THE XLS
 
 %% Perform setup
 
@@ -38,14 +38,27 @@ switch button
     case 'Continue'
         
         [filename,pathname] = uigetfile('*.mat','Select a file',[basepath,'/MCT Rate Calculation*.mat']);
+        if filename == 0, return; end
         MAT = [pathname,filename];
         XLS = [MAT(1:length(MAT)-4),'.xls'];
-        load(MAT);    
+        load(MAT);
+        if complete,
+            disp('Tracking complete for this experimental run!')
+            return;
+        end
     
     case 'New'
         
         experiment = uigetfile('*.mat','Select an experiment','/*.m');
+        if experiment == 0, return; end
         run(experiment);
+        
+        if length(expt.tracking) > 1, 
+            tracked = listdlg('PromptString','Select experiment:','SelectionMode','single','ListString',num2str([1:length(expt.tracking)]'));
+        else
+            tracked = 1;
+        end
+        
         expt.info = ReadS8Data(expt.file.filelist);
         expt.tracking(tracked).runlist = expt.tracking(tracked).runlist(randperm(length(expt.tracking(tracked).runlist)));     % Randomise the runlist order to blind observer
         expt.tracking(tracked).times = expt.tracking(tracked).times(randperm(length(expt.tracking(tracked).times)));           % Randomise the timepoints to analyse
@@ -53,6 +66,7 @@ switch button
         m = 1;
         t = 1;
         p = 1;
+        complete = false;
         
         datetime = datestr(now,'yyyy-mmm-dd HH-MM-SS');
         initials = inputdlg('Please enter your initials (i.e. MD)','User ID');
@@ -63,8 +77,7 @@ switch button
 end
 
 pauselength = 0.2;                                                                      % Time between frames in preview sequence
-starttimes = expt.timing.blockimages * expt.tracking(tracked).times + expt.tracking(tracked).startframe;  % Set the start timepoints (in frames)
-timepoints = 1:length(expt.tracking(tracked).times);
+starttimes = expt.tracking(tracked).blockimages * expt.tracking(tracked).times + expt.tracking(tracked).startframe;  % Set the start timepoints (in frames)
 
 iptsetpref('ImshowBorder','loose');
 iptsetpref('ImshowInitialMagnification', 35);
@@ -76,7 +89,7 @@ h = figure;
 while m <= length(expt.tracking(tracked).runlist),
 
     % Repeat for each timepoint
-    while t <= length(timepoints),
+    while t <= length(starttimes),
 
         % Load each of the images at that timepoint
         w = waitbar(0,'Loading image sequence');
@@ -85,7 +98,7 @@ while m <= length(expt.tracking(tracked).runlist),
             waitbar(i/expt.tracking(tracked).frames,w);
         
             % Calculate the framenumber
-            framenumber(i) = starttimes(timepoints(t)) + (i - 1) * expt.tracking(tracked).gap + 1;
+            framenumber(i) = starttimes(t) + (i - 1) * expt.tracking(tracked).gap + 1;
             
             % Determine the filename
             imagename = sprintf('%s%s%s%s%s%.4d%s',...
@@ -98,10 +111,10 @@ while m <= length(expt.tracking(tracked).runlist),
                 expt.fad.FAD_type_low);
 
             % Load the image
-            if(exist(imagename)),
+            if exist(imagename),
                 images(:,:,i) = imread(imagename);
             else
-                images(:,:,i) = uint8(zeros(expt.timing.imsize));
+                images(:,:,i) = uint8(zeros(expt.tracking(tracked).imsize));
             end
             
         end
@@ -115,14 +128,13 @@ while m <= length(expt.tracking(tracked).runlist),
                 
                 tic
                 figure(h), imshow(images(:,:,i));
-                set(gca,'XTick',[0:250:size(images,2)])
                 grid on
                 title(['Sequence Preview: Frame ',num2str(i)],'color','r')
                 
                 if ~isempty(data),
                     
                     % Determine the previous particles to mark
-                    previous = find((data(:,1) == expt.tracking(tracked).times(timepoints(t))) & (data(:,3) == framenumber(i)));
+                    previous = find((data(:,1) == expt.tracking(tracked).times(t)) & (data(:,3) == framenumber(i)));
                     
                     % Mark each of the previously selected particles
                     for j = 1:length(previous), rectangle('Position',[data(previous(j),4)-expt.tracking(tracked).dotsize,data(previous(j),5)-expt.tracking(tracked).dotsize,2*expt.tracking(tracked).dotsize,2*expt.tracking(tracked).dotsize],'Curvature',[1,1],'EdgeColor','r'); end
@@ -137,17 +149,16 @@ while m <= length(expt.tracking(tracked).runlist),
             for i = 1:expt.tracking(tracked).frames,
 
                 figure(h), imshow(images(:,:,i));
-                set(gca,'XTick',[0:250:size(images,2)])
                 grid on
                 title(['Run: ', num2str(m) ' of ', num2str(length(expt.tracking(tracked).runlist)),', ',...
-                    'Timepoint: ', num2str(t),' of ',num2str(length(timepoints)),', ',...
+                    'Timepoint: ', num2str(t),' of ',num2str(length(starttimes)),', ',...
                     'Particle: ', num2str(p), ' of ', num2str(expt.tracking(tracked).particles), ', ',...
                     'Frame: ', num2str(i),' of ', num2str(expt.tracking(tracked).frames)])
                 
                 if ~isempty(data),
                     
                     % Determine the previous particles to mark
-                    previous = find((data(:,1) == expt.tracking(tracked).times(timepoints(t))) & (data(:,3) == framenumber(i)));
+                    previous = find((data(:,1) == expt.tracking(tracked).times(t)) & (data(:,3) == framenumber(i)));
                     
                     % Mark each of the previously selected particles
                     for j = 1:length(previous), rectangle('Position',[data(previous(j),4)-expt.tracking(tracked).dotsize,data(previous(j),5)-expt.tracking(tracked).dotsize,2*expt.tracking(tracked).dotsize,2*expt.tracking(tracked).dotsize],'Curvature',[1,1],'EdgeColor','r'); end
@@ -162,32 +173,32 @@ while m <= length(expt.tracking(tracked).runlist),
                     
                     % Left button (select and track a particle)
                     case 1
-                        data = [data; expt.tracking(tracked).times(timepoints(t)), p, framenumber(i), x, y];
+                        data = [data; expt.tracking(tracked).times(t), p, framenumber(i), x, y];
                         if i == expt.tracking(tracked).frames,
                             p = p + 1;
                             break;
                         end
                         
-                    % Middle button (remove all data for that particle and REPLAY)
-                    case 2
+                    % Middle button or spacebar (remove all data for that particle and REPLAY)
+                    case {2, 32}
                         if i > 1,
-                            data((data(:,1) == expt.tracking(tracked).times(timepoints(t))) & (data(:,2) == p),:) = [];
+                            data((data(:,1) == expt.tracking(tracked).times(t)) & (data(:,2) == p),:) = [];
                         end
                         break;
                         
                     % Right button (Finish current particle and start next PARTICLE)
-                    case 3
+                    case {3, 30}
                         p = p + 1;
                         break;
                         
-                    % Zero key (Finish current particle and start next TIMEPOINT)
-                    case 48
+                    % Right arrow (Finish current particle and start next TIMEPOINT)
+                    case 29
                         p = expt.tracking(tracked).particles;
                         break;
                         
-                    % One key (Remove current and previous particles and start previous particle)
-                    case 49
-                        data((data(:,1) == expt.tracking(tracked).times(timepoints(t))) & (data(:,2) >= p - 1),:) = [];
+                    % Left arrow (Remove current and previous particles and start previous particle)
+                    case 28
+                        data((data(:,1) == expt.tracking(tracked).times(t)) & (data(:,2) >= p - 1),:) = [];
                         p = p - 1;
                         if p < 1, p = 1; end
                         break;
@@ -195,7 +206,11 @@ while m <= length(expt.tracking(tracked).runlist),
                     % X key (Finish current particle and start next LINE IN THE XLS)
                     case 120
                         p = expt.tracking(tracked).particles;
-                        t = length(timepoints);
+                        t = length(starttimes);
+                        break;
+                        
+                    otherwise
+                        disp('Key has no effect')
                         break;
                         
                 end
@@ -203,7 +218,7 @@ while m <= length(expt.tracking(tracked).runlist),
             end
 
             % Save the temporary results in the MAT file
-            save(MAT,'expt','m','t','p','data','tracked');
+            save(MAT,'expt','m','t','p','data','tracked','complete');
             
         end
         
@@ -224,18 +239,18 @@ while m <= length(expt.tracking(tracked).runlist),
         
         % Remove any data from selections outside the image area
         data(data(:,4) < 0,4:5) = NaN;
-        data(data(:,4) >  expt.timing.imsize(2),4:5) = NaN;
+        data(data(:,4) >  expt.tracking(tracked).imsize(2),4:5) = NaN;
         data(data(:,5) < 0,4:5) = NaN;
-        data(data(:,5) > expt.timing.imsize(1),4:5) = NaN;
+        data(data(:,5) > expt.tracking(tracked).imsize(1),4:5) = NaN;
         
         % Complete the calculations
         dt = data(:,3) - circshift(data(:,3),[1 0]);
         dx = data(:,4) - circshift(data(:,4),[1 0]);
         dy = data(:,5) - circshift(data(:,5),[1 0]);
         data(:,6)=sqrt(dx.^2 + dy.^2);
-        data(:,7)=data(:,6)*expt.timing.pixelsize;
+        data(:,7)=data(:,6)*expt.tracking(tracked).pixelsize;
         data(:,8)=dt;
-        data(:,9)=data(:,8)*expt.timing.frameinterval/60;
+        data(:,9)=data(:,8)*expt.tracking(tracked).frameinterval/60;
         data(:,10)=data(:,7)./data(:,9);
         
         % Remove the data for each new particle or timepoint
@@ -260,11 +275,12 @@ while m <= length(expt.tracking(tracked).runlist),
         if m < length(expt.tracking(tracked).runlist),
             save(MAT,'expt','m','t','p','tracked');
         else
-            save(MAT,'expt','tracked');
+            complete = true;
+            save(MAT,'expt','tracked','complete');
         end
         
     else
-        error('Failed to write XLS file! Manually save data');
+        error('Failed to write XLS file! Manually save XLS and MAT data');
     end
     close(w)
 
