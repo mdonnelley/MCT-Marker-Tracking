@@ -10,11 +10,15 @@ load(MAT);
 % Get the group information
 grouplist = fieldnames(expt.group);
 
+% Set default values
+if isfield(expt.tracking, 'bins'), bins = expt.tracking(tracked).bins; else bins = 0:0.05:5; end
+
 if exist('histogram') == 1,
     
     for Rx = 1:size(histogram, 3),
         
-        figure, h = bar3(expt.tracking(tracked).bins,histogram(:,:,Rx)/sum(sum(histogram(:,:,Rx))));
+%         figure, h = bar3(bins,histogram(:,:,Rx)/sum(sum(histogram(:,:,Rx))));
+        figure, h = bar3(bins,histogram(:,:,Rx));
         set(gca,'XTickLabel',expt.tracking(tracked).times)
         xlabel('Timepoint(min)')
         ylabel('Particle MCT rate (mm/min)')
