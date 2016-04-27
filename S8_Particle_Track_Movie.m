@@ -32,7 +32,7 @@ for s = 1:length(sheets),
         % Read the sheet from the XLS file
         data = xlsread(XLS,sheets{s},'','basic');
         
-        if ~isempty(data)
+%         if ~isempty(data)
             
             t = 1;
             framecounter = 1;
@@ -55,7 +55,7 @@ for s = 1:length(sheets),
                     waitbar(i/expt.tracking(tracked).frames,w);
                     
                     % Calculate the framenumber
-                    framenumber(i) = startframes(t) + (i - 1) * expt.tracking(tracked).gap + 1;
+                    framenumber = startframes(t) + (i - 1) * expt.tracking(tracked).gap + 1;
                     
                     % Determine the input imagename and read the image
                     imagename = sprintf('%s%s%s%s%s%.4d%s',...
@@ -64,7 +64,7 @@ for s = 1:length(sheets),
                         expt.fad.FAD_path_low,...
                         expt.info.imagestart{m},...
                         expt.fad.FAD_file_low,...
-                        framenumber(i),...
+                        framenumber,...
                         expt.fad.FAD_type_low);
 
                     if exist(imagename),
@@ -81,13 +81,13 @@ for s = 1:length(sheets),
                     text = sprintf('%s%s%.4d (t = %d min)',...
                         expt.info.imagestart{m},...
                         expt.fad.FAD_file_low,...
-                        framenumber(i),...
+                        framenumber,...
                         expt.tracking(tracked).times(t));
                     textInserter = vision.TextInserter(text, 'Color', [0 0 255], 'FontSize', 36, 'Location', [50 50]);
                     im = step(textInserter, im);
                     
                     % Find frame numbers in data that match the current frame
-                    coordinates = data((data(:,3) == framenumber(i)) & isfinite(data(:,4)),4:5);
+                    coordinates = data((data(:,3) == framenumber) & isfinite(data(:,4)),4:5);
                     
                     if ~isempty(coordinates)
                         
@@ -110,8 +110,20 @@ for s = 1:length(sheets),
                     
                 end
             end
-        end
+%         end
     end
 end
 
 close(w)
+
+% Modify parameters to enable VirtualDub script to create movies from the frames
+expt.fad.movies = expt.tracking(tracked).movies;
+expt.fad.runlist = expt.tracking(tracked).runlist;
+expt.fad.corrected = expt.tracking(tracked).movies;
+expt.info.imagegofrom(1:length(expt.info.imagegofrom)) = 1;
+expt.info.imagegoto(1:length(expt.info.imagegoto)) = expt.tracking(tracked).frames * length(expt.tracking(tracked).times);
+expt.fad.FAD_path_low = '';
+expt.fad.FAD_file_low = '';
+
+% Call the VirtualDub script using the modified parameters above
+VirtualDub(expt);

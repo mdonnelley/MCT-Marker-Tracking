@@ -61,7 +61,7 @@ switch button
         
         expt.info = ReadS8Data(expt.file.filelist);
         expt.tracking(tracked).runlist = expt.tracking(tracked).runlist(randperm(length(expt.tracking(tracked).runlist)));     % Randomise the runlist order to blind observer
-        expt.tracking(tracked).blocks = expt.tracking(tracked).blocks(randperm(length(expt.tracking(tracked).blocks)));           % Randomise the timepoints to analyse
+        expt.tracking(tracked).blocks = expt.tracking(tracked).blocks(randperm(length(expt.tracking(tracked).blocks)));        % Randomise the timepoints to analyse
 
         m = 1;
         t = 1;
@@ -77,7 +77,7 @@ switch button
 end
 
 pauselength = 0.2;                                                                                                              % Time between frames in preview sequence
-startframes = expt.tracking(tracked).blockimages * expt.tracking(tracked).blocks + expt.tracking(tracked).startframe;             % Set the start timepoints (in frames)
+startframes = expt.tracking(tracked).blockimages * expt.tracking(tracked).blocks + expt.tracking(tracked).startframe;           % Set the start timepoints (in frames)
 
 iptsetpref('ImshowBorder','loose');
 iptsetpref('ImshowInitialMagnification', 35);
@@ -291,6 +291,7 @@ close(h)
 % Collate all the data in the XLS file, write particle track images and display histograms
 S8_Collate_Tracking_Results(MAT);
 S8_Display_Particle_Tracks(MAT);
-S8_Plot_MCT_Histogram(MAT)
+S8_Plot_MCT_Histogram(MAT);
+S8_Particle_Track_Movie(MAT);
 
 close all; clc;

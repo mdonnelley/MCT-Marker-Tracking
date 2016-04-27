@@ -9,7 +9,7 @@ function S8_Display_Particle_Tracks(MAT)
 % Set the base pathname for the current machine
 setbasepath;
 
-SCALE = 0.5;
+SCALE = 1;
 
 w = waitbar(0,'Reading MAT and XLS data');
 load(MAT);
@@ -37,8 +37,8 @@ for s = 1:length(sheets),
             while ~strcmp(expt.info.imagestart{m},sheets{s}), m = m + 1; end
             
             % Determine the timepoints to analyse
-            trackingtimes = unique(data(:,1));
-            startframes = expt.tracking(tracked).blockimages * trackingtimes + expt.tracking(tracked).startframe;  % Set the start timepoints (in frames)
+            trackingblocks = unique(data(:,1));
+            startframes = expt.tracking(tracked).blockimages * trackingblocks + expt.tracking(tracked).startframe;  % Set the start timepoints (in frames)
             
             for t = 1:length(startframes),
                 
@@ -62,10 +62,19 @@ for s = 1:length(sheets),
                     im = repmat(im,[1 1 3]);
                     im = imresize(im,SCALE);
                     
-                    for p = unique(data(data(:,1) == trackingtimes(t), 2))'
+                    % Add information text to the image
+                    text = sprintf('%s%s%.4d (t = %d min)',...
+                        expt.info.imagestart{m},...
+                        expt.fad.FAD_file_low,...
+                        framenumber,...
+                        expt.tracking(tracked).times(t));
+                    textInserter = vision.TextInserter(text, 'Color', [0 0 255], 'FontSize', 36, 'Location', [50 50]);
+                    im = step(textInserter, im);
+                    
+                    for p = unique(data(data(:,1) == trackingblocks(t), 2))'
                         
                         % Get the coordinates of the current particle
-                        coordinates = data((data(:,1) == trackingtimes(t)) & (data(:,2) == p) & isfinite(data(:,4)), 4:5);
+                        coordinates = data((data(:,1) == trackingblocks(t)) & (data(:,2) == p) & isfinite(data(:,4)), 4:5);
                         
 %                         % Add the X marker showing initial position
 %                         markerInserter = vision.MarkerInserter('Shape','X-mark','Size',20*SCALE,'BorderColor','Custom','CustomBorderColor',[255 0 0]);
@@ -91,6 +100,8 @@ for s = 1:length(sheets),
                             
                         end
                         
+                        figure(1),imshow(im)
+                        
                     end
                     
                     % Determine the imagename
@@ -99,11 +110,11 @@ for s = 1:length(sheets),
                         expt.tracking(tracked).tracks,...
                         sheets{s},...
                         '_t',...
-                        trackingtimes(t),...
+                        trackingblocks(t),...
                         expt.fad.FAD_type_low);
                     
                     % Write the image
-                    imwrite(im,imagename);
+%                     imwrite(im,imagename);
                     
                 end
                 
