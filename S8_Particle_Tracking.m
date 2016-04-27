@@ -61,7 +61,7 @@ switch button
         
         expt.info = ReadS8Data(expt.file.filelist);
         expt.tracking(tracked).runlist = expt.tracking(tracked).runlist(randperm(length(expt.tracking(tracked).runlist)));     % Randomise the runlist order to blind observer
-        expt.tracking(tracked).times = expt.tracking(tracked).times(randperm(length(expt.tracking(tracked).times)));           % Randomise the timepoints to analyse
+        expt.tracking(tracked).blocks = expt.tracking(tracked).blocks(randperm(length(expt.tracking(tracked).blocks)));           % Randomise the timepoints to analyse
 
         m = 1;
         t = 1;
@@ -76,8 +76,8 @@ switch button
         
 end
 
-pauselength = 0.2;                                                                      % Time between frames in preview sequence
-starttimes = expt.tracking(tracked).blockimages * expt.tracking(tracked).times + expt.tracking(tracked).startframe;  % Set the start timepoints (in frames)
+pauselength = 0.2;                                                                                                              % Time between frames in preview sequence
+startframes = expt.tracking(tracked).blockimages * expt.tracking(tracked).blocks + expt.tracking(tracked).startframe;             % Set the start timepoints (in frames)
 
 iptsetpref('ImshowBorder','loose');
 iptsetpref('ImshowInitialMagnification', 35);
@@ -89,7 +89,7 @@ h = figure;
 while m <= length(expt.tracking(tracked).runlist),
 
     % Repeat for each timepoint
-    while t <= length(starttimes),
+    while t <= length(startframes),
 
         % Load each of the images at that timepoint
         w = waitbar(0,'Loading image sequence');
@@ -98,7 +98,7 @@ while m <= length(expt.tracking(tracked).runlist),
             waitbar(i/expt.tracking(tracked).frames,w);
         
             % Calculate the framenumber
-            framenumber(i) = starttimes(t) + (i - 1) * expt.tracking(tracked).gap + 1;
+            framenumber(i) = startframes(t) + (i - 1) * expt.tracking(tracked).gap + 1;
             
             % Determine the filename
             imagename = sprintf('%s%s%s%s%s%.4d%s',...
@@ -134,7 +134,7 @@ while m <= length(expt.tracking(tracked).runlist),
                 if ~isempty(data),
                     
                     % Determine the previous particles to mark
-                    previous = find((data(:,1) == expt.tracking(tracked).times(t)) & (data(:,3) == framenumber(i)));
+                    previous = find((data(:,1) == expt.tracking(tracked).blocks(t)) & (data(:,3) == framenumber(i)));
                     
                     % Mark each of the previously selected particles
                     for j = 1:length(previous), rectangle('Position',[data(previous(j),4)-expt.tracking(tracked).dotsize,data(previous(j),5)-expt.tracking(tracked).dotsize,2*expt.tracking(tracked).dotsize,2*expt.tracking(tracked).dotsize],'Curvature',[1,1],'EdgeColor','r'); end
@@ -151,14 +151,14 @@ while m <= length(expt.tracking(tracked).runlist),
                 figure(h), imshow(images(:,:,i));
                 grid on
                 title(['Run: ', num2str(m) ' of ', num2str(length(expt.tracking(tracked).runlist)),', ',...
-                    'Timepoint: ', num2str(t),' of ',num2str(length(starttimes)),', ',...
+                    'Timepoint: ', num2str(t),' of ',num2str(length(startframes)),', ',...
                     'Particle: ', num2str(p), ' of ', num2str(expt.tracking(tracked).particles), ', ',...
                     'Frame: ', num2str(i),' of ', num2str(expt.tracking(tracked).frames)])
                 
                 if ~isempty(data),
                     
                     % Determine the previous particles to mark
-                    previous = find((data(:,1) == expt.tracking(tracked).times(t)) & (data(:,3) == framenumber(i)));
+                    previous = find((data(:,1) == expt.tracking(tracked).blocks(t)) & (data(:,3) == framenumber(i)));
                     
                     % Mark each of the previously selected particles
                     for j = 1:length(previous), rectangle('Position',[data(previous(j),4)-expt.tracking(tracked).dotsize,data(previous(j),5)-expt.tracking(tracked).dotsize,2*expt.tracking(tracked).dotsize,2*expt.tracking(tracked).dotsize],'Curvature',[1,1],'EdgeColor','r'); end
@@ -173,7 +173,7 @@ while m <= length(expt.tracking(tracked).runlist),
                     
                     % Left button (select and track a particle)
                     case 1
-                        data = [data; expt.tracking(tracked).times(t), p, framenumber(i), x, y];
+                        data = [data; expt.tracking(tracked).blocks(t), p, framenumber(i), x, y];
                         if i == expt.tracking(tracked).frames,
                             p = p + 1;
                             break;
@@ -182,7 +182,7 @@ while m <= length(expt.tracking(tracked).runlist),
                     % Middle button or spacebar (remove all data for that particle and REPLAY)
                     case {2, 32}
                         if i > 1,
-                            data((data(:,1) == expt.tracking(tracked).times(t)) & (data(:,2) == p),:) = [];
+                            data((data(:,1) == expt.tracking(tracked).blocks(t)) & (data(:,2) == p),:) = [];
                         end
                         break;
                         
@@ -198,7 +198,7 @@ while m <= length(expt.tracking(tracked).runlist),
                         
                     % Left arrow (Remove current and previous particles and start previous particle)
                     case 28
-                        data((data(:,1) == expt.tracking(tracked).times(t)) & (data(:,2) >= p - 1),:) = [];
+                        data((data(:,1) == expt.tracking(tracked).blocks(t)) & (data(:,2) >= p - 1),:) = [];
                         p = p - 1;
                         if p < 1, p = 1; end
                         break;
@@ -206,7 +206,7 @@ while m <= length(expt.tracking(tracked).runlist),
                     % X key (Finish current particle and start next LINE IN THE XLS)
                     case 120
                         p = expt.tracking(tracked).particles;
-                        t = length(starttimes);
+                        t = length(startframes);
                         break;
                         
                     otherwise
