@@ -137,7 +137,7 @@ xlswrite(XLS,number,'Number','C2');
 waitbar(0.75,w,'Writing sheet: Histogram');
 xlswrite(XLS,NaN(200,200),'Histogram','A1');
 histogram = reshape(histogram,length(bins),[]);
-xlswrite(XLS,repmat(sort(expt.tracking(tracked).times),[1 size(groups,2)]),'Histogram','B1');
+xlswrite(XLS,repmat(sort(expt.tracking(tracked).times),[1 length(grouplist)]),'Histogram','B1');
 xlswrite(XLS,bins','Histogram','A2');
 xlswrite(XLS,histogram,'Histogram','B2');
 
