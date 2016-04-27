@@ -38,12 +38,12 @@ for s = 1:length(sheets),
             
             % Determine the timepoints to analyse
             trackingtimes = unique(data(:,1));
-            starttimes = expt.tracking(tracked).blockimages * trackingtimes + expt.tracking(tracked).startframe;  % Set the start timepoints (in frames)
+            startframes = expt.tracking(tracked).blockimages * trackingtimes + expt.tracking(tracked).startframe;  % Set the start timepoints (in frames)
             
-            for t = 1:length(starttimes),
+            for t = 1:length(startframes),
                 
                 % Calculate the framenumber
-                framenumber = starttimes(t) + 1;
+                framenumber = startframes(t) + 1;
                 
                 % Determine the imagename
                 imagename = sprintf('%s%s%s%s%s%.4d%s',...
