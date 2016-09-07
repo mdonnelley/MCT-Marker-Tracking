@@ -32,10 +32,10 @@ if isfield(expt.tracking(tracked),'minrate') & ~isempty(expt.tracking(tracked).m
 if isfield(expt.tracking(tracked),'minparticles') & ~isempty(expt.tracking(tracked).minparticles), minparticles = expt.tracking(tracked).minparticles; else minparticles = 0; end
 
 % Pre-allocate the arrays
-average = zeros(length(expt.info.image),length(expt.tracking(tracked).blocks));
-SD = zeros(length(expt.info.image),length(expt.tracking(tracked).blocks));
-number = zeros(length(expt.info.image),length(expt.tracking(tracked).blocks));
-histogram = zeros(length(bins),length(expt.tracking(tracked).blocks),length(grouplist));
+average = zeros(length(expt.info.image),length(expt.tracking(tracked).times));
+SD = zeros(length(expt.info.image),length(expt.tracking(tracked).times));
+number = zeros(length(expt.info.image),length(expt.tracking(tracked).times));
+histogram = zeros(length(bins),length(expt.tracking(tracked).times),length(grouplist));
 
 for s = 1:length(sheets)
     
@@ -54,7 +54,7 @@ for s = 1:length(sheets)
             
             % Get the summary stats info for all particles at each timepoint
             stats = [];
-            h2D = zeros(length(bins),length(expt.tracking(tracked).blocks));
+            h2D = zeros(length(bins),length(expt.tracking(tracked).times));
             [C,ia,ic] = unique(data(:,1));
             for i = 1:length(C),
                     
@@ -70,7 +70,7 @@ for s = 1:length(sheets)
                     % Calculate the histogram data based on the mean MCT rate of each particle
                     for j = 1:numparticles,
                         h1D = hist(nanmean(data((ic == i) & (data(:,2) == j),10)),bins)';
-                        timepoint = find(expt.tracking(tracked).blocks == C(i));
+                        timepoint = find(expt.tracking(tracked).times == C(i));
                         h2D(:,timepoint) = h2D(:,timepoint) + h1D;
                     end
                     
@@ -80,7 +80,7 @@ for s = 1:length(sheets)
             
             % Save histogram in the XLS sheet
             xlswrite(XLS,NaN(200,200),sheets{s},'L1');
-            xlswrite(XLS,sort(expt.tracking(tracked).blocks),sheets{s},'M1');
+            xlswrite(XLS,sort(expt.tracking(tracked).times),sheets{s},'M1');
             xlswrite(XLS,bins',sheets{s},'L2');
             xlswrite(XLS,h2D,sheets{s},'M2');
             
@@ -94,7 +94,7 @@ for s = 1:length(sheets)
             for i = 1:size(stats,2)
                 
                 % Get the column number (in case there is no data for some timepoints)
-                t = find(stats(1,i) == sort(expt.tracking(tracked).blocks));
+                t = find(stats(1,i) == sort(expt.tracking(tracked).times));
                 
                 % Save the stats
                 average(m,t) = stats(2,i);

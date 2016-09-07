@@ -16,8 +16,7 @@ load(MAT);
 XLS = [MAT(1:length(MAT)-4),'.xls'];
 
 % Set the start timepoints (in frames)
-startframes = expt.tracking(tracked).blockimages * expt.tracking(tracked).blocks + expt.tracking(tracked).startframe;
-startframes = sort(startframes);
+startframes = expt.tracking(tracked).blockimages * sort(expt.tracking(tracked).blocks) + expt.tracking(tracked).startframe;
 
 % Get the sheet names
 [status,sheets] = xlsfinfo(XLS);
@@ -32,14 +31,20 @@ for s = 1:length(sheets),
         % Read the sheet from the XLS file
         data = xlsread(XLS,sheets{s},'','basic');
         
-%         if ~isempty(data)
+        % Get the row number
+        m = 1;
+        while ~strcmp(expt.info.imagestart{m},sheets{s}), m = m + 1; end
+        
+        if isempty(data)
+            
+            % Remove rows from list that have no data, so no movies made
+            ind = find(expt.tracking(tracked).runlist == m);
+            expt.tracking(tracked).runlist(ind) = [];
+            
+        else
             
             t = 1;
             framecounter = 1;
-            
-            % Get the row number
-            m = 1;
-            while ~strcmp(expt.info.imagestart{m},sheets{s}), m = m + 1; end
             
             % Set the output directory
             current_dir = [basepath,expt.tracking(tracked).movies,expt.info.image{m}];
@@ -57,32 +62,33 @@ for s = 1:length(sheets),
                     % Calculate the framenumber
                     framenumber = startframes(t) + (i - 1) * expt.tracking(tracked).gap + 1;
                     
-                    % Determine the input imagename and read the image
-                    imagename = sprintf('%s%s%s%s%s%.4d%s',...
-                        [basepath,expt.fad.corrected],...
+                    % Determine the input imagename
+                    imagename = [basepath,...
+                        expt.fad.corrected,...
                         expt.info.image{m},...
                         expt.fad.FAD_path_low,...
                         expt.info.imagestart{m},...
                         expt.fad.FAD_file_low,...
-                        framenumber,...
-                        expt.fad.FAD_type_low);
-
+                        sprintf('%.4d',framenumber),...
+                        expt.fad.FAD_type_low];
+                    
+                    % Read the image
                     if exist(imagename),
                         im = imread(imagename);
                     else
                         im = uint8(zeros(expt.tracking(tracked).imsize));
                     end
-
+                    
                     % Prep the image data
                     im = repmat(im,[1 1 3]);
                     im = imresize(im,SCALE);
-
+                    
                     % Add information text to the image
-                    text = sprintf('%s%s%.4d (t = %d min)',...
-                        expt.info.imagestart{m},...
+                    text = [expt.info.imagestart{m},...
                         expt.fad.FAD_file_low,...
-                        framenumber,...
-                        expt.tracking(tracked).times(t));
+                        sprintf('%.4d',framenumber),...
+                        ' (t = ',num2str(expt.tracking(tracked).times(t)), ' min)'];
+                    
                     textInserter = vision.TextInserter(text, 'Color', [0 0 255], 'FontSize', 36, 'Location', [50 50]);
                     im = step(textInserter, im);
                     
@@ -104,13 +110,13 @@ for s = 1:length(sheets),
                         expt.info.imagestart{m},...
                         framecounter,...
                         expt.fad.FAD_type_low);
-
+                    
                     imwrite(im,imagename);
                     framecounter = framecounter + 1;
                     
                 end
             end
-%         end
+        end
     end
 end
 

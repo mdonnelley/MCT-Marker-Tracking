@@ -15,6 +15,9 @@ w = waitbar(0,'Reading MAT and XLS data');
 load(MAT);
 XLS = [MAT(1:length(MAT)-4),'.xls'];
 
+% Set the start timepoints (in frames)
+startframes = expt.tracking(tracked).blockimages * sort(expt.tracking(tracked).blocks) + expt.tracking(tracked).startframe;
+
 if ~exist([basepath,[basepath,expt.tracking(tracked).tracks]]), mkdir([basepath,expt.tracking(tracked).tracks]), end
 
 % Get the sheet names
@@ -37,23 +40,23 @@ for s = 1:length(sheets),
             while ~strcmp(expt.info.imagestart{m},sheets{s}), m = m + 1; end
             
             % Determine the timepoints to analyse
-            trackingblocks = unique(data(:,1));
-            startframes = expt.tracking(tracked).blockimages * trackingblocks + expt.tracking(tracked).startframe;  % Set the start timepoints (in frames)
+            times = unique(data(:,1));
             
-            for t = 1:length(startframes),
+            for t = 1:length(times),
                 
                 % Calculate the framenumber
-                framenumber = startframes(t) + 1;
+                idx = find(expt.tracking(tracked).times == times(t));
+                framenumber = startframes(idx) + 1;
                 
                 % Determine the imagename
-                imagename = sprintf('%s%s%s%s%s%.4d%s',...
-                    [basepath,expt.fad.corrected],...
+                imagename = [basepath,...
+                    expt.fad.corrected,...
                     expt.info.image{m},...
                     expt.fad.FAD_path_low,...
                     expt.info.imagestart{m},...
                     expt.fad.FAD_file_low,...
-                    framenumber,...
-                    expt.fad.FAD_type_low);
+                    sprintf('%.4d',framenumber),...
+                    expt.fad.FAD_type_low];
                 
                 if exist(imagename),
                     
@@ -63,25 +66,25 @@ for s = 1:length(sheets),
                     im = imresize(im,SCALE);
                     
                     % Add information text to the image
-                    text = sprintf('%s%s%.4d (t = %d min)',...
-                        expt.info.imagestart{m},...
+                    text = [expt.info.imagestart{m},...
                         expt.fad.FAD_file_low,...
-                        framenumber,...
-                        expt.tracking(tracked).times(t));
+                        sprintf('%.4d',framenumber),...
+                        ' (t = ',num2str(times(t)), ' min)'];
+                    
                     textInserter = vision.TextInserter(text, 'Color', [0 0 255], 'FontSize', 36, 'Location', [50 50]);
                     im = step(textInserter, im);
                     
-                    for p = unique(data(data(:,1) == trackingblocks(t), 2))'
+                    for p = unique(data(data(:,1) == times(t), 2))'
                         
                         % Get the coordinates of the current particle
-                        coordinates = data((data(:,1) == trackingblocks(t)) & (data(:,2) == p) & isfinite(data(:,4)), 4:5);
+                        coordinates = data((data(:,1) == times(t)) & (data(:,2) == p) & isfinite(data(:,4)), 4:5);
                         
-%                         % Add the X marker showing initial position
-%                         markerInserter = vision.MarkerInserter('Shape','X-mark','Size',20*SCALE,'BorderColor','Custom','CustomBorderColor',[255 0 0]);
-%                         marker = SCALE*int32(coordinates(1,:));
-%                         im = step(markerInserter, im, marker);
+                        % % Add the X marker showing initial position
+                        % markerInserter = vision.MarkerInserter('Shape','X-mark','Size',20*SCALE,'BorderColor','Custom','CustomBorderColor',[255 0 0]);
+                        % marker = SCALE*int32(coordinates(1,:));
+                        % im = step(markerInserter, im, marker);
                         
-                        % Add the O markers showing subsequent positions (30 for large and 18 for small)
+                        % Add the O marker showing the initial position (30 for large and 18 for small)
                         markerInserter = vision.MarkerInserter('Shape','Circle','Size',18*SCALE,'Fill',1,'FillColor','Custom','CustomFillColor',[255 0 0],'Opacity',0.2);
                         marker = SCALE*int32(coordinates(1,:));
                         im = step(markerInserter, im, marker);
@@ -110,11 +113,11 @@ for s = 1:length(sheets),
                         expt.tracking(tracked).tracks,...
                         sheets{s},...
                         '_t',...
-                        trackingblocks(t),...
+                        times(t),...
                         expt.fad.FAD_type_low);
                     
                     % Write the image
-%                     imwrite(im,imagename);
+                    imwrite(im,imagename);
                     
                 end
                 
