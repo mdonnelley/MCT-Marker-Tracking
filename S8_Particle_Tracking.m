@@ -26,10 +26,15 @@ function S8_Particle_Tracking
 % Set the base pathname for the current machine
 setbasepath;
 
+% Time between frames in preview sequence
+pauselength = 0.2; 
+
 % Set the axis visible for grid lines
 iptsetpref('ImshowAxesVisible','on');
+iptsetpref('ImshowBorder','loose');
+iptsetpref('ImshowInitialMagnification', 40);
 
-data = [];
+tmpdata = [];
 
 % Select whether to start or continue an analysis
 button = questdlg('Would you like to continue or begin a new analysis?', 'Analysis options', 'Continue', 'New', 'New');
@@ -37,7 +42,7 @@ button = questdlg('Would you like to continue or begin a new analysis?', 'Analys
 switch button
     case 'Continue'
         
-        [filename,pathname] = uigetfile('*.mat','Select a file',[basepath,'/MCT Rate Calculation*.mat']);
+        [filename,pathname] = uigetfile('*.mat','Select a file',[basepath,'/MCT*.mat']);
         if filename == 0, return; end
         MAT = [pathname,filename];
         XLS = [MAT(1:length(MAT)-4),'.xls'];
@@ -70,17 +75,18 @@ switch button
         
         datetime = datestr(now,'yyyy-mmm-dd HH-MM-SS');
         initials = inputdlg('Please enter your initials (i.e. MD)','User ID');
-        MAT = [basepath,expt.tracking(tracked).MCT,'MCT Rate Calculation ',datetime,' ',char(initials),'.mat'];
-        XLS = [basepath,expt.tracking(tracked).MCT,'MCT Rate Calculation ',datetime,' ',char(initials),'.xls'];
+        file = ['MCT ',datetime,' ',char(initials)];
+        MAT = [basepath,expt.tracking(tracked).MCT,file,'.mat'];
+        XLS = [basepath,expt.tracking(tracked).MCT,file,'.xls'];
         if(~exist([basepath,expt.tracking(tracked).MCT])), mkdir([basepath,expt.tracking(tracked).MCT]); end
         
 end
 
-pauselength = 0.2;                                                                                                              % Time between frames in preview sequence
-startframes = expt.tracking(tracked).blockimages * expt.tracking(tracked).blocks + expt.tracking(tracked).startframe;           % Set the start timepoints (in frames)
+% Create the data array
+data = cell.empty(length(expt.info.imagestart),0);
 
-iptsetpref('ImshowBorder','loose');
-iptsetpref('ImshowInitialMagnification', 35);
+startframes = expt.tracking(tracked).blockimages * expt.tracking(tracked).blocks + expt.tracking(tracked).startframe;           % Set the start timepoints (in frames)
+if isfield(expt.naming,'zeropad') zeropad = expt.naming.zeropad; else zeropad = 4; end
 h = figure;
 
 %% Begin analysis
@@ -92,6 +98,7 @@ while m <= length(expt.tracking(tracked).runlist),
     while t <= length(startframes),
 
         % Load each of the images at that timepoint
+        timepoint = expt.tracking(tracked).times(expt.tracking(tracked).blocks(t) + 1);
         w = waitbar(0,'Loading image sequence');
         for i = 1:expt.tracking(tracked).frames,
             
@@ -101,15 +108,15 @@ while m <= length(expt.tracking(tracked).runlist),
             framenumber(i) = startframes(t) + (i - 1) * expt.tracking(tracked).gap + 1;
             
             % Determine the filename
-            imagename = sprintf('%s%s%s%s%s%.4d%s',...
-                [basepath,expt.fad.corrected],...
+            imagename = [basepath,...
+                expt.fad.corrected,...
                 expt.info.image{expt.tracking(tracked).runlist(m)},...
                 expt.fad.FAD_path_low,...
                 expt.info.imagestart{expt.tracking(tracked).runlist(m)},...
                 expt.fad.FAD_file_low,...
-                framenumber(i),...
-                expt.fad.FAD_type_low);
-
+                sprintf(['%.',num2str(zeropad),'d'],framenumber(i)),...
+                expt.fad.FAD_type_low];
+            
             % Load the image
             if exist(imagename),
                 images(:,:,i) = imread(imagename);
@@ -131,13 +138,13 @@ while m <= length(expt.tracking(tracked).runlist),
                 grid on
                 title(['Sequence Preview: Frame ',num2str(i)],'color','r')
                 
-                if ~isempty(data),
+                if ~isempty(tmpdata),
                     
                     % Determine the previous particles to mark
-                    previous = find((data(:,1) == expt.tracking(tracked).blocks(t)) & (data(:,3) == framenumber(i)));
+                    previous = find((tmpdata(:,1) == timepoint) & (tmpdata(:,3) == framenumber(i)));
                     
                     % Mark each of the previously selected particles
-                    for j = 1:length(previous), rectangle('Position',[data(previous(j),4)-expt.tracking(tracked).dotsize,data(previous(j),5)-expt.tracking(tracked).dotsize,2*expt.tracking(tracked).dotsize,2*expt.tracking(tracked).dotsize],'Curvature',[1,1],'EdgeColor','r'); end
+                    for j = 1:length(previous), rectangle('Position',[tmpdata(previous(j),4)-expt.tracking(tracked).dotsize,tmpdata(previous(j),5)-expt.tracking(tracked).dotsize,2*expt.tracking(tracked).dotsize,2*expt.tracking(tracked).dotsize],'Curvature',[1,1],'EdgeColor','r'); end
                     
                 end
                 
@@ -155,14 +162,14 @@ while m <= length(expt.tracking(tracked).runlist),
                     'Particle: ', num2str(p), ' of ', num2str(expt.tracking(tracked).particles), ', ',...
                     'Frame: ', num2str(i),' of ', num2str(expt.tracking(tracked).frames)])
                 
-                if ~isempty(data),
+                if ~isempty(tmpdata),
                     
                     % Determine the previous particles to mark
-                    previous = find((data(:,1) == expt.tracking(tracked).blocks(t)) & (data(:,3) == framenumber(i)));
+                    previous = find((tmpdata(:,1) == timepoint) & (tmpdata(:,3) == framenumber(i)));
                     
                     % Mark each of the previously selected particles
-                    for j = 1:length(previous), rectangle('Position',[data(previous(j),4)-expt.tracking(tracked).dotsize,data(previous(j),5)-expt.tracking(tracked).dotsize,2*expt.tracking(tracked).dotsize,2*expt.tracking(tracked).dotsize],'Curvature',[1,1],'EdgeColor','r'); end
-                    
+                    for j = 1:length(previous), rectangle('Position',[tmpdata(previous(j),4)-expt.tracking(tracked).dotsize,tmpdata(previous(j),5)-expt.tracking(tracked).dotsize,2*expt.tracking(tracked).dotsize,2*expt.tracking(tracked).dotsize],'Curvature',[1,1],'EdgeColor','r'); end
+
                 end                
 
                 % Get the user input
@@ -173,7 +180,7 @@ while m <= length(expt.tracking(tracked).runlist),
                     
                     % Left button (select and track a particle)
                     case 1
-                        data = [data; expt.tracking(tracked).blocks(t), p, framenumber(i), x, y];
+                        tmpdata = [tmpdata; timepoint, p, framenumber(i), x, y];
                         if i == expt.tracking(tracked).frames,
                             p = p + 1;
                             break;
@@ -182,7 +189,7 @@ while m <= length(expt.tracking(tracked).runlist),
                     % Middle button or spacebar (remove all data for that particle and REPLAY)
                     case {2, 32}
                         if i > 1,
-                            data((data(:,1) == expt.tracking(tracked).blocks(t)) & (data(:,2) == p),:) = [];
+                            tmpdata((tmpdata(:,1) == timepoint) & (tmpdata(:,2) == p),:) = [];
                         end
                         break;
                         
@@ -198,7 +205,7 @@ while m <= length(expt.tracking(tracked).runlist),
                         
                     % Left arrow (Remove current and previous particles and start previous particle)
                     case 28
-                        data((data(:,1) == expt.tracking(tracked).blocks(t)) & (data(:,2) >= p - 1),:) = [];
+                        tmpdata((tmpdata(:,1) == timepoint) & (tmpdata(:,2) >= p - 1),:) = [];
                         p = p - 1;
                         if p < 1, p = 1; end
                         break;
@@ -227,56 +234,57 @@ while m <= length(expt.tracking(tracked).runlist),
         
     end
     
-    if isempty(data), 
+    if isempty(tmpdata), 
         
         % In case no points were selected at any timepoint
-        data = NaN; 
+        tmpdata = NaN; 
         
     else
         
         % Sort the data into the correct order
-        data = sortrows(data,[1 2 3]);
+        tmpdata = sortrows(tmpdata,[1 2 3]);
         
         % Remove any data from selections outside the image area
-        data(data(:,4) < 0,4:5) = NaN;
-        data(data(:,4) >  expt.tracking(tracked).imsize(2),4:5) = NaN;
-        data(data(:,5) < 0,4:5) = NaN;
-        data(data(:,5) > expt.tracking(tracked).imsize(1),4:5) = NaN;
+        tmpdata(tmpdata(:,4) < 0,4:5) = NaN;
+        tmpdata(tmpdata(:,4) >  expt.tracking(tracked).imsize(2),4:5) = NaN;
+        tmpdata(tmpdata(:,5) < 0,4:5) = NaN;
+        tmpdata(tmpdata(:,5) > expt.tracking(tracked).imsize(1),4:5) = NaN;
         
         % Complete the calculations
-        dt = data(:,3) - circshift(data(:,3),[1 0]);
-        dx = data(:,4) - circshift(data(:,4),[1 0]);
-        dy = data(:,5) - circshift(data(:,5),[1 0]);
-        data(:,6)=sqrt(dx.^2 + dy.^2);
-        data(:,7)=data(:,6)*expt.tracking(tracked).pixelsize;
-        data(:,8)=dt;
-        data(:,9)=data(:,8)*expt.tracking(tracked).frameinterval/60;
-        data(:,10)=data(:,7)./data(:,9);
+        dt = tmpdata(:,3) - circshift(tmpdata(:,3),[1 0]);
+        dx = tmpdata(:,4) - circshift(tmpdata(:,4),[1 0]);
+        dy = tmpdata(:,5) - circshift(tmpdata(:,5),[1 0]);
+        tmpdata(:,6) = sqrt(dx.^2 + dy.^2);
+        tmpdata(:,7) = tmpdata(:,6)*expt.tracking(tracked).pixelsize;
+        tmpdata(:,8) = dt;
+        tmpdata(:,9) = tmpdata(:,8)*expt.tracking(tracked).frameinterval/60;
+        tmpdata(:,10) = tmpdata(:,7)./tmpdata(:,9);
         
         % Remove the data for each new particle or timepoint
-        data(data(:,8) ~= expt.tracking(tracked).gap,6:10) = NaN;
+        tmpdata(tmpdata(:,8) ~= expt.tracking(tracked).gap,6:10) = NaN;
         
         % Add column headings
-        data = [{'Timepoint (min)', 'Particle number', 'Frame number',...
+        xlsdata = [{'Timepoint (min)', 'Particle number', 'Frame number',...
             'x', 'y', 'Distance (pixels)', 'Distance (mm)',...
             'Frames', 'Time (min)', 'Rate (mm/min)'};...
-            num2cell(data)];
+            num2cell(tmpdata)];
         
     end
     
     % Write the results to the XLS and MAT files
     w = waitbar(0,'Saving XLS and MAT');
-    if xlswrite(XLS,data,expt.info.imagestart{expt.tracking(tracked).runlist(m)}),
+    data{m} = tmpdata;
+    if xlswrite(XLS,xlsdata,expt.info.imagestart{expt.tracking(tracked).runlist(m)}),
         
         m = m+1;
         t = 1;
-        data = [];
+        tmpdata = [];
         
         if m < length(expt.tracking(tracked).runlist),
-            save(MAT,'expt','m','t','p','tracked');
+            save(MAT,'expt','data','m','t','p','tracked','complete');
         else
             complete = true;
-            save(MAT,'expt','tracked','complete');
+            save(MAT,'expt','data','tracked','complete','file');
         end
         
     else

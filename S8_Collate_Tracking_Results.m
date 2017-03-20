@@ -5,15 +5,15 @@ function S8_Collate_Tracking_Results(MAT)
 % Function takes all of the particle MCT measurements and collates them
 % into {mean, standard deviation, N} for each animal and timepoint.
 
-w = waitbar(0,'Reading MAT and XLS data');
-
 % Set the base pathname for the current machine
 setbasepath;
 
+w = waitbar(0,'Reading MAT and XLS data');
 load(MAT);
-XLS = [MAT(1:length(MAT)-4),'.xls'];
+XLS = [MAT(1:length(MAT)-4),'.xlsx'];
 
 % Get the group information
+groups = cell(size(expt.info.imagestart));
 grouplist = fieldnames(expt.group);
 for i = 1:length(grouplist),
     for j = getfield(expt.group,grouplist{i})
@@ -22,8 +22,12 @@ for i = 1:length(grouplist),
     end
 end
 
-% Get the sheet names
-[status,sheets] = xlsfinfo(XLS);
+% % Retain only the subjects analysed in this run
+groups = [expt.info.imagestart, groups];
+% groups = groups(sort(expt.tracking(tracked).runlist),:);
+
+% % Get the sheet names
+% [status,sheets] = xlsfinfo(XLS);
 
 % Set default values
 if isfield(expt.tracking(tracked),'bins') & ~isempty(expt.tracking(tracked).bins), bins = expt.tracking(tracked).bins; else bins = 0:0.05:5; end
@@ -32,44 +36,44 @@ if isfield(expt.tracking(tracked),'minrate') & ~isempty(expt.tracking(tracked).m
 if isfield(expt.tracking(tracked),'minparticles') & ~isempty(expt.tracking(tracked).minparticles), minparticles = expt.tracking(tracked).minparticles; else minparticles = 0; end
 
 % Pre-allocate the arrays
-average = zeros(length(expt.info.image),length(expt.tracking(tracked).times));
-SD = zeros(length(expt.info.image),length(expt.tracking(tracked).times));
-number = zeros(length(expt.info.image),length(expt.tracking(tracked).times));
+average = zeros(size(groups,1),length(expt.tracking(tracked).times));
+SD = zeros(size(groups,1),length(expt.tracking(tracked).times));
+number = zeros(size(groups,1),length(expt.tracking(tracked).times));
 histogram = zeros(length(bins),length(expt.tracking(tracked).times),length(grouplist));
 
-for s = 1:length(sheets)
+for m = 1:length(data)    
+
+    waitbar(m/length(data),w,['Analysing: ',expt.info.imagestart{m}]);
     
-    waitbar(s/length(sheets),w,['Reading sheet: ',sheets{s}(1:length(sheets{s})-1)]);
-    
-    if ~strcmp(sheets{s},'Sheet1') & ~strcmp(sheets{s},'Sheet2') & ~strcmp(sheets{s},'Sheet3') & ~strcmp(sheets{s},'Mean') & ~strcmp(sheets{s},'SD') & ~strcmp(sheets{s},'Number') & ~strcmp(sheets{s},'Histogram'),
+%     if ~strcmp(sheets{s},'Sheet1') & ~strcmp(sheets{s},'Sheet2') & ~strcmp(sheets{s},'Sheet3') & ~strcmp(sheets{s},'Mean') & ~strcmp(sheets{s},'SD') & ~strcmp(sheets{s},'Number') & ~strcmp(sheets{s},'Histogram'),
+%         
+%         % Read the relevant section of each XLS sheet % MODIFY THIS TO USE MATLAB DATA RATHER THAN XLS DATA
+%         data = xlsread(XLS,sheets{s},'A:K');
         
-        % Read the relevant section of each XLS sheet
-        data = xlsread(XLS,sheets{s},'A2:J5000');
-        
-        if ~isempty(data)
+        if ~isempty(data{m})
             
             % Exclude stationary particles and those moving outside max/min rates
-            data(data(:,10) >= maxrate,:) = NaN;
-            data(data(:,10) <= minrate,:) = NaN;
+            data{m}(data{m}(:,10) >= maxrate,:) = NaN;
+            data{m}(data{m}(:,10) <= minrate,:) = NaN;
             
             % Get the summary stats info for all particles at each timepoint
             stats = [];
             h2D = zeros(length(bins),length(expt.tracking(tracked).times));
-            [C,ia,ic] = unique(data(:,1));
+            [C,ia,ic] = unique(data{m}(:,1));
             for i = 1:length(C),
                     
                 % Exclude if there are an insufficient number of particles
-                numparticles = max(data(ic == i,2));
+                numparticles = max(data{m}(ic == i,2));
                 if(numparticles >= minparticles),
                     
                     stats(1,i) = C(i);
-                    stats(2,i) = nanmean(data(ic == i,10));
-                    stats(3,i) = nanstd(data(ic == i,10));
-                    stats(4,i) = length(unique(data(ic == i,2)));
+                    stats(2,i) = nanmean(data{m}(ic == i,10));
+                    stats(3,i) = nanstd(data{m}(ic == i,10));
+                    stats(4,i) = length(unique(data{m}(ic == i,2)));
                     
                     % Calculate the histogram data based on the mean MCT rate of each particle
                     for j = 1:numparticles,
-                        h1D = hist(nanmean(data((ic == i) & (data(:,2) == j),10)),bins)';
+                        h1D = hist(nanmean(data{m}((ic == i) & (data{m}(:,2) == j),10)),bins)';
                         timepoint = find(expt.tracking(tracked).times == C(i));
                         h2D(:,timepoint) = h2D(:,timepoint) + h1D;
                     end
@@ -78,18 +82,18 @@ for s = 1:length(sheets)
                 
             end
             
-            % Save histogram in the XLS sheet
-            xlswrite(XLS,NaN(200,200),sheets{s},'L1');
-            xlswrite(XLS,sort(expt.tracking(tracked).times),sheets{s},'M1');
-            xlswrite(XLS,bins',sheets{s},'L2');
-            xlswrite(XLS,h2D,sheets{s},'M2');
+%             % Save histogram in the XLS sheet
+%             xlswrite(XLS,NaN(200,200),sheets{s},'L1');
+%             xlswrite(XLS,sort(expt.tracking(tracked).times),sheets{s},'M1');
+%             xlswrite(XLS,bins',sheets{s},'L2');
+%             xlswrite(XLS,h2D,sheets{s},'M2');
             
-            % Get the row number
-            m = 1;
-            while ~strcmp(expt.info.imagestart{m},sheets{s}), m = m + 1; end
-            
+%             % Get the row number
+%             m = 1;
+%             while ~strcmp(groups{m,1},sheets{s}), m = m + 1; end
+         
             % Add the histogram data to the correct group
-            histogram(:,:,groups{m,2}) = histogram(:,:,groups{m,2}) + h2D;
+            histogram(:,:,groups{m,3}) = histogram(:,:,groups{m,3}) + h2D;
 
             for i = 1:size(stats,2)
                 
@@ -103,7 +107,7 @@ for s = 1:length(sheets)
                 
             end
             
-        end
+%         end
         
     end
     
@@ -114,22 +118,22 @@ save(MAT,'average','SD','number','histogram','-append');
 
 % Write the mean data back to the XLS sheet
 waitbar(0,w,'Writing sheet: Mean');
-xlswrite(XLS,expt.info.imagestart,'Mean','A2');
-xlswrite(XLS,groups(:,1),'Mean','B2');
+xlswrite(XLS,groups(:,1),'Mean','A2');
+xlswrite(XLS,groups(:,2),'Mean','B2');
 xlswrite(XLS,sort(expt.tracking(tracked).times),'Mean','C1');
 xlswrite(XLS,average,'Mean','C2');
 
 % Write the standard deviation data back to the XLS sheet
 waitbar(0.25,w,'Writing sheet: SD');
-xlswrite(XLS,expt.info.imagestart,'SD','A2');
-xlswrite(XLS,groups(:,1),'SD','B2');
+xlswrite(XLS,groups(:,1),'SD','A2');
+xlswrite(XLS,groups(:,2),'SD','B2');
 xlswrite(XLS,sort(expt.tracking(tracked).times),'SD','C1');
 xlswrite(XLS,SD,'SD','C2');
 
 % Write the number of particles tracked back to the XLS sheet
 waitbar(0.5,w,'Writing sheet: Number');
-xlswrite(XLS,expt.info.imagestart,'Number','A2');
-xlswrite(XLS,groups(:,1),'Number','B2');
+xlswrite(XLS,groups(:,1),'Number','A2');
+xlswrite(XLS,groups(:,2),'Number','B2');
 xlswrite(XLS,sort(expt.tracking(tracked).times),'Number','C1');
 xlswrite(XLS,number,'Number','C2');
 
