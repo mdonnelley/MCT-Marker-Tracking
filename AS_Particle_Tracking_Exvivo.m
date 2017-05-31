@@ -52,6 +52,7 @@ for imageset = expt.tracking.runlist,
         
         indices = expt.info.imagegofrom(imageset):expt.tracking.bgimageskip:expt.info.imagegoto(imageset);
         stack = uint8(zeros(expt.tracking.imsize(1),expt.tracking.imsize(2),length(indices)));
+
         count = 1;
         
         for i = indices,
@@ -74,7 +75,6 @@ for imageset = expt.tracking.runlist,
         
         % Determine the maximum value in the stack
         maximage = max(stack,[],3);
-% maximage = flipud(maximage); % REMOVE THIS LINE ONCE ALL DATA IS FLIPPED UP DOWN            
         
         % Save the background image
         disp(['Writing file ', outfile]);
@@ -104,17 +104,15 @@ for imageset = expt.tracking.runlist,
                 
                 disp(['Identifying particles in file ', num2str(i), ' of ', num2str(expt.info.imagegoto(imageset))]);
                 inimage = imread(imagename);
-% inimage = flipud(inimage); % REMOVE THIS LINE ONCE ALL DATA IS FLIPPED UP DOWN            
 
                 % Perform the background subtraction
                 foreground = maximage - inimage;
 
                 % Locate the circle centres
-                [centersDark, radiiDark] = imfindcircles(foreground,[7 15],'ObjectPolarity','bright','Sensitivity',0.9);
+                [centersDark, radiiDark] = imfindcircles(foreground,[4 12],'ObjectPolarity','bright','Sensitivity',0.9);
 
                 % Remove particles that are not the right radius
                 idx = radiiDark > expt.tracking.minRadius & radiiDark < expt.tracking.maxRadius;
-                radiiDark(~idx,:) = [];
                 centersDark(~idx,:) = [];
 
                 % Concatenate the data and include the timepoint and frame number
@@ -123,7 +121,7 @@ for imageset = expt.tracking.runlist,
                 %         figure(1),imshow(inimage)
                 %         figure(2),imshow(maximage)
                 %         figure(3),imshow(foreground)
-            
+
             end
             
         end
@@ -157,8 +155,6 @@ for imageset = expt.tracking.runlist,
             tmpdata(:,11) = sign(dx) .* (90 - atand(-dy./abs(dx)));
 
             % Remove the rate data for the first recorded frame for each tracked particle
-% THESE TWO LINES ARE NOT CORRECT! WHAT IF THERE ARE PARTICLES WITH THE SAME ID AT MULTIPLE TIMEPOINTS? CHECK S8 CODE ETC
-%             [C,ia,ic] = unique(data(:,2));
             ia = find(tmpdata(:,2) - circshift(tmpdata(:,2),[1 0]) ~= 0);
             tmpdata(ia,6:11) = NaN;
         
@@ -174,13 +170,12 @@ for imageset = expt.tracking.runlist,
                     expt.info.imagestart{imageset},...
                     expt.fad.FAD_file_low,...
                     sprintf(['%.',num2str(zeropad),'d'],i),...
-                    expt.fad.FAD_type_low];
+                    expt.fad.FAD_type_low];                
 
                 if exist(imagename),
 
                     disp(['Marking particles in file ', num2str(i), ' of ', num2str(expt.info.imagegoto(imageset))]);                
                     inimage = imread(imagename);
-% inimage = flipud(inimage); % REMOVE THIS LINE ONCE ALL DATA IS FLIPPED UP DOWN 
 
                     % Mark the tracked particles and add text
                     coordinates = tmpdata(find(tmpdata(:,3) == i),4:5);
