@@ -261,7 +261,8 @@ while m <= length(expt.tracking(tracked).runlist),
         tmpdata(:,10) = tmpdata(:,7)./tmpdata(:,9);
         
         % Remove the data for each new particle or timepoint
-        tmpdata(tmpdata(:,8) ~= expt.tracking(tracked).gap,6:10) = NaN;
+%         tmpdata(tmpdata(:,8) ~= expt.tracking(tracked).gap,6:10) = NaN;               % Modified on 27/4/17 to match AS code
+        tmpdata(dt ~= expt.tracking(tracked).gap,6:10) = NaN;
         
         % Add column headings
         xlsdata = [{'Timepoint (min)', 'Particle number', 'Frame number',...
