@@ -1,4 +1,4 @@
-function AS_Particle_Motion_Histogram(expt, data, m)
+function [dx, dy] = AS_Particle_Motion_Histogram(expt, data, m)
 % https://au.mathworks.com/matlabcentral/fileexchange/45325-efficient-2d-histogram--no-toolboxes-needed
 %
 % % Example of individual / timed analysis
@@ -33,43 +33,50 @@ if isempty(data{m})
     
 else
     
-    clf
+    %clf
     
-    dx = data{m}(:,4) - circshift(data{m}(:,4),[1 0]);
-    dy = data{m}(:,5) - circshift(data{m}(:,5),[1 0]);
-    dx = dx * expt.tracking.pixelsize ./ data{m}(:,9);
-    dy = dy * expt.tracking.pixelsize ./ data{m}(:,9);
-    
+    % Calculate dx and dy from the angle and distance data
+    dx = data{m}(:,7).* cosd(data{m}(:,11))
+    dy = -data{m}(:,7).* sind(data{m}(:,11));
+
+    % Calculate the instantaneous velocity in the x and y directions
+    vx = dx * expt.tracking.pixelsize ./ data{m}(:,9);
+    vy = dy * expt.tracking.pixelsize ./ data{m}(:,9);
+
     % Perform for all timepoints pooled together
-    N = ndhist(dx,-dy,'bins',3,'filter','axis',[-4 4 -4 4]);
+%     ndhist(vx,-vy,'bins',3,'filter','axis',[-4 4 -4 4]);
+%     ndhist(vx,-vy,'bins',3);
     
     % NOTE: Added extra lines to ndhist for MuCLS data. Remove when finished:
     %371:    binWidthX = 0.075
     %372:    binWidthY = 0.075
     %451:    N(1,1)=25;
     
-    title(['Instantaneous tracking particle velocity (mm/min) for ',expt.info.imagestart{m}], 'Interpreter', 'none')
-    axes0
-    axis equal
-    colormap(fig,mycmap)
+%     title(['Instantaneous velocity of tracked particles(mm/min) for ',expt.info.imagestart{m}], 'Interpreter', 'none')
+%     axes0
+%     axis equal
+    
+    
+    
+%     colormap(fig,mycmap)
 
-%     % Perform for each timepoint individually
-%     for i = 0:9,
-%         
-%         subplot(2,5,i+1)
-%         
-%         ndhist(dx(find(data{m}(:,1) == i)),-dy(find(data{m}(:,1) == i)),'bins',2,'filter','axis',[-5 5 -5 5]);
-%         title(['t = ',num2str(i), ' minutes'])
-%         %         title(['Instantaneous tracking particle velocity (mm/min) for ',expt.info.imagestart{m}], 'Interpreter', 'none')
-%         axes0
-%         axis equal
-%         colormap(ax,mycmap)
-%         
-%     end
+    % Perform for each timepoint individually
+    for i = 1:length(expt.tracking.times),
+        
+        subplot(3,5,i)
+        
+        ndhist(vx(find(data{m}(:,1) == i)),-vy(find(data{m}(:,1) == i)),'bins',2,'filter','axis',[-7.5 7.5 -7.5 7.5]);
+        title(['t = ',num2str(expt.tracking.times(i)), ' minutes'])
+        %         title(['Instantaneous tracking particle velocity (mm/min) for ',expt.info.imagestart{m}], 'Interpreter', 'none')
+        axes0
+        axis equal
+        colormap(fig,mycmap)
+        
+    end
 
     % Write the image
     outfile = [basepath,...
-        expt.tracking.MCT,...
+        expt.tracking.trackPath,...
         expt.info.imagestart{m},...
         'hist2d.jpg'];
     saveas(fig,outfile);

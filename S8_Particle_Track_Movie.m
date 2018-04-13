@@ -135,8 +135,6 @@ for m = 1:length(data)
     end
 end
 
-close(w)
-
 % Modify parameters to enable VirtualDub script to create movies from the frames
 expt.fad.movies = [expt.tracking(tracked).MCT,file,expt.tracking(tracked).movies];
 expt.fad.runlist = expt.tracking(tracked).runlist;

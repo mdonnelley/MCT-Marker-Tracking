@@ -1,4 +1,4 @@
-function S8_Particle_Tracking
+function AS_Particle_Tracking_Manual
 
 % Function to manually track movement of particles between adjacent frames
 %
@@ -87,8 +87,12 @@ end
 if isfield(expt.naming,'zeropad') zeropad = expt.naming.zeropad; else zeropad = 4; end
 h = figure;
 
-% Determine the frames to analyse
-startframes = expt.tracking(tracked).blockimages * expt.tracking(tracked).blocks + expt.tracking(tracked).startframe;
+% Load the frames to analyse
+load([basepath,...
+    expt.file.datapath,...
+    'Processed/',...
+    'Framelist 2017-Jul-05 14-02-55.mat'],...
+    'keepframes');
 
 %% Begin analysis
 
@@ -96,13 +100,13 @@ startframes = expt.tracking(tracked).blockimages * expt.tracking(tracked).blocks
 while m <= length(expt.tracking(tracked).runlist),
 
     % Repeat for each timepoint
-    while t <= length(startframes),
+    while t <= length(expt.tracking(tracked).times),
 
         % Load each of the images at that timepoint
-        for i = 1:expt.tracking(tracked).frames,
-
+        for i = 1:length(keepframes{expt.tracking(tracked).runlist(m)}{expt.tracking(tracked).blocks(t)}),
+            
             % Calculate the framenumber
-            framenumber(i) = startframes(t) + (i - 1) * expt.tracking(tracked).gap + 1;
+            framenumber(i) = keepframes{expt.tracking(tracked).runlist(m)}{expt.tracking(tracked).blocks(t)}(i);
             
             % Determine the filename
             imagename = [basepath,...
@@ -116,7 +120,7 @@ while m <= length(expt.tracking(tracked).runlist),
             
             % Load the image
             if exist(imagename),
-                disp(['Loading image ', num2str(i), ' of ', num2str(expt.tracking(tracked).frames)]);
+                disp(['Loading image ', num2str(i), ' of ', num2str(length(keepframes{expt.tracking(tracked).runlist(m)}{expt.tracking(tracked).blocks(t)}))]);
                 [images(:,:,i),acquired(i)] = ReadFileTime(imagename);
             else
                 images(:,:,i) = uint8(zeros(expt.tracking(tracked).imsize));
@@ -125,12 +129,12 @@ while m <= length(expt.tracking(tracked).runlist),
         end
         
         acquired = acquired ./ 60;
-
+        
         % Repeat for each of the particles
         while p < expt.tracking(tracked).particles,
             
             % Display the image series to allow user to visualise the particles
-            for i = expt.tracking(tracked).frames:-1:1,
+            for i = length(keepframes{expt.tracking(tracked).runlist(m)}{expt.tracking(tracked).blocks(t)}):-1:1,
                 
                 tic
                 figure(h), imshow(images(:,:,i));
@@ -152,14 +156,14 @@ while m <= length(expt.tracking(tracked).runlist),
             end
             
             % Select the particles
-            for i = 1:expt.tracking(tracked).frames,
-
+            for i = 1:length(keepframes{expt.tracking(tracked).runlist(m)}{expt.tracking(tracked).blocks(t)}),
+                
                 figure(h), imshow(images(:,:,i));
                 grid on
                 title(['Run: ', num2str(m) ' of ', num2str(length(expt.tracking(tracked).runlist)),', ',...
-                    'Timepoint: ', num2str(t),' of ',num2str(length(startframes)),', ',...
+                    'Timepoint: ', num2str(t),' of ',num2str(length(expt.tracking(tracked).times)),', ',...
                     'Particle: ', num2str(p), ' of ', num2str(expt.tracking(tracked).particles), ', ',...
-                    'Frame: ', num2str(i),' of ', num2str(expt.tracking(tracked).frames)])
+                    'Frame: ', num2str(i),' of ', num2str(length(keepframes{expt.tracking(tracked).runlist(m)}{expt.tracking(tracked).blocks(t)}))])
                 
                 if ~isempty(tmpdata),
                     
@@ -168,9 +172,9 @@ while m <= length(expt.tracking(tracked).runlist),
                     
                     % Mark each of the previously selected particles
                     for j = 1:length(previous), rectangle('Position',[tmpdata(previous(j),4)-expt.tracking(tracked).radius,tmpdata(previous(j),5)-expt.tracking(tracked).radius,2*expt.tracking(tracked).radius,2*expt.tracking(tracked).radius],'Curvature',[1,1],'EdgeColor','r'); end
-
-                end                
-
+                    
+                end
+                
                 % Get the user input
                 [x, y, userinput] = ginput(1);
                 
@@ -180,39 +184,39 @@ while m <= length(expt.tracking(tracked).runlist),
                     % Left button (select and track a particle)
                     case 1
                         tmpdata = [tmpdata; t, p, framenumber(i), x, y, acquired(i)];
-                        if i == expt.tracking(tracked).frames,
+                        if i == length(keepframes{expt.tracking(tracked).runlist(m)}{expt.tracking(tracked).blocks(t)}),
                             p = p + 1;
                             break;
                         end
                         
-                    % Middle button or spacebar (remove all data for that particle and REPLAY)
+                        % Middle button or spacebar (remove all data for that particle and REPLAY)
                     case {2, 32}
                         if i > 1,
                             tmpdata((tmpdata(:,1) == t) & (tmpdata(:,2) == p),:) = [];
                         end
                         break;
                         
-                    % Right button (Finish current particle and start next PARTICLE)
+                        % Right button (Finish current particle and start next PARTICLE)
                     case {3, 30}
                         p = p + 1;
                         break;
                         
-                    % Right arrow (Finish current particle and start next TIMEPOINT)
+                        % Right arrow (Finish current particle and start next TIMEPOINT)
                     case 29
                         p = expt.tracking(tracked).particles;
                         break;
                         
-                    % Left arrow (Remove current and previous particles and start previous particle)
+                        % Left arrow (Remove current and previous particles and start previous particle)
                     case 28
                         tmpdata((tmpdata(:,1) == t) & (tmpdata(:,2) >= p - 1),:) = [];
                         p = p - 1;
                         if p < 1, p = 1; end
                         break;
                         
-                    % X key (Finish current particle and start next LINE IN THE XLS)
+                        % X key (Finish current particle and start next LINE IN THE XLS)
                     case 120
                         p = expt.tracking(tracked).particles;
-                        t = length(startframes);
+                        t = length(expt.tracking(tracked).times);
                         break;
                         
                     otherwise
@@ -220,9 +224,9 @@ while m <= length(expt.tracking(tracked).runlist),
                         break;
                         
                 end
-  
+                
             end
-
+            
             % Save the temporary results in the MAT file
             save(MAT,'expt','m','t','p','tmpdata','data','tracked','complete');
             
@@ -233,13 +237,13 @@ while m <= length(expt.tracking(tracked).runlist),
         
     end
     
-    if isempty(tmpdata), 
+    if isempty(tmpdata),
         
         % In case no points were selected at any timepoint
-        tmpdata = NaN; 
+        tmpdata = NaN;
         
     else
-                
+        
         % Sort the data into the correct order
         tmpdata(:,1) = expt.tracking.times(tmpdata(:,1))';
         tmpdata = sortrows(tmpdata,[1 2 3]);
@@ -259,9 +263,8 @@ while m <= length(expt.tracking(tracked).runlist),
         tmpdata(:,8) = tmpdata(:,7)*expt.tracking(tracked).pixelsize;
         tmpdata(:,9) = dt;
         tmpdata(:,10) = tmpdata(:,8)./tmpdata(:,9);
-%         tmpdata(:,11) = -sign(dy) .* (90 - atand(dx./abs(dy)));     % Relative to 90 degrees
-        tmpdata(:,11) = sign(dx) .* (90 - atand(-dy./abs(dx)));     % Angle measured from 12 o'clock position
-
+        tmpdata(:,11) = -sign(dy) .* (90 - atand(dx./abs(dy)));     % Relative to 90 degrees
+%         tmpdata(:,11) = sign(dx) .* (90 - atand(-dy./abs(dx)));     % Angle measured from 12 o'clock position
         
         % Remove the rate data for the first recorded frame for each tracked particle
         ia = find(sum(tmpdata(:,1:2) - circshift(tmpdata(:,1:2),[1 0]) ~= 0,2) ~= 0);
@@ -282,10 +285,16 @@ while m <= length(expt.tracking(tracked).runlist),
         complete = true;
         save(MAT,'expt','data','tracked','complete');
     end
-
+    
 end
 
-% Create images with the particles marked
-markParticles(expt, data, color);
+close(h)
+
+% % Collate all the data in the XLS file, write particle track images and display histograms
+% dataToXLSX(MAT)
+% S8_Collate_Tracking_Results(MAT);
+% S8_Display_Particle_Tracks(MAT);
+% S8_Plot_MCT_Histogram(MAT);
+% S8_Particle_Track_Movie(MAT);
 
 close all; clc;

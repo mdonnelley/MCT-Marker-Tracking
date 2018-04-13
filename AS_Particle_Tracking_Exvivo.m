@@ -152,7 +152,7 @@ for imageset = expt.tracking.runlist,
             tmpdata(:,8) = dt;
             tmpdata(:,9) = tmpdata(:,8)*expt.tracking.frameinterval/60;
             tmpdata(:,10) = tmpdata(:,7)./tmpdata(:,9);
-            tmpdata(:,11) = sign(dx) .* (90 - atand(-dy./abs(dx)));
+            tmpdata(:,11) = sign(dx) .* (90 - atand(-dy./abs(dx)));         % Angle measured from 12 o'clock position
 
             % Remove the rate data for the first recorded frame for each tracked particle
             ia = find(tmpdata(:,2) - circshift(tmpdata(:,2),[1 0]) ~= 0);

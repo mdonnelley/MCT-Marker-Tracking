@@ -66,8 +66,8 @@ for imageset = expt.tracking.runlist,
                 expt.info.imagestart{imageset},...
                 sprintf(['%.',num2str(zeropad),'d'],i),...
                 expt.fad.FAD_type_low];
+
             stack(:,:,count) = imread(imagename);
-            
             count = count + 1;
             
         end
@@ -81,20 +81,23 @@ for imageset = expt.tracking.runlist,
         
     end
     
-    % Generate the tracheal mask
-    x = [415 565 565 415 415];
-    y = [1 1 1200 1200 1];
-    mask = poly2mask(x,y,size(maximage,1),size(maximage,2));
+%     % Generate the tracheal mask
+%     x = [415 565 565 415 415];
+%     y = [1 1 1200 1200 1];
+%     mask = poly2mask(x,y,size(maximage,1),size(maximage,2));
+mask = logical(imread('\\gt-srv-synology\imaging\MuCLS\2017-9\Images\Processed\Detected\M04\mask.tif'));
     
     for t = expt.tracking.times
         
         tmpdata = [];
         
-        %% Perform background subtraction and locate circles
-        for f = 1:expt.tracking.length / expt.tracking.frameinterval,
-            
-            i = t * 60 / expt.tracking.frameinterval + f;
-            
+%         %% Perform background subtraction and locate circles
+%         for f = 1:expt.tracking.length / expt.tracking.frameinterval,
+%             
+%             i = t * 60 / expt.tracking.frameinterval + f           
+
+        for i = expt.info.imagegofrom(imageset):expt.info.imagegoto(imageset),
+
             imagename = [basepath,...
                 expt.file.datapath,...
                 'Processed/Registered/',...
@@ -109,21 +112,25 @@ for imageset = expt.tracking.runlist,
                 inimage = imread(imagename);
 
                 % Perform the background subtraction
-                foreground = maximage - inimage;
+%                 foreground = maximage - inimage;
+                foreground = im2double(maximage - inimage);
                 
                 % Find the centres (this section is different the the AS ex-vivo algorithm that used the CHT algorithm)
-                BW = foreground > expt.tracking.fgthreshold;
-                BW2 = BW .* mask;
-                BW3 = bwareaopen(BW2, expt.tracking.minArea) & ~bwareaopen(BW2, expt.tracking.maxArea);
-                s = regionprops(BW3,'centroid');
+                masked = foreground .* mask;
+%                 BW = masked > expt.tracking.fgthreshold;
+                BW = imextendedmax(masked,expt.tracking.fgthreshold);
+                BW2 = bwareaopen(BW, expt.tracking.minArea) & ~bwareaopen(BW, expt.tracking.maxArea);
+                s = regionprops(BW2,'centroid');
                 centersDark = reshape(cell2mat(struct2cell(s)'),[],2);
 
                 % Concatenate the data and include the timepoint and frame number
                 tmpdata = [tmpdata;[centersDark,repmat(i,[size(centersDark,1),1])]];
 
-                        figure(1),imshow(inimage)
-                %         figure(2),imshow(maximage)
-                %         figure(3),imshow(foreground)
+%                 figure(1),imshow(inimage)
+%                 figure(2),imshow(maximage)
+%                 figure(3),imshow(foreground)
+%                 figure(4),imshow(BW)
+%                 figure(5),imshow(BW2)
 
             end
             
@@ -162,9 +169,10 @@ for imageset = expt.tracking.runlist,
             tmpdata(ia,6:11) = NaN;
         
             %% Write the tracked images
-            for f = 1:expt.tracking.length / expt.tracking.frameinterval,
-
-                i = t * 60 / expt.tracking.frameinterval + f;
+            for i = expt.info.imagegofrom(imageset):expt.info.imagegoto(imageset),
+%             for f = 1:expt.tracking.length / expt.tracking.frameinterval,
+% 
+%                 i = t * 60 / expt.tracking.frameinterval + f;
 
                 imagename = [basepath,...
                     expt.file.datapath,...
@@ -181,7 +189,7 @@ for imageset = expt.tracking.runlist,
 
                     % Mark the tracked particles and add text
                     coordinates = tmpdata(find(tmpdata(:,3) == i),4:5);
-                    RGB = insertShape(inimage, 'FilledCircle', [coordinates,expt.tracking.radius*2*ones(size(coordinates,1),1)], 'LineWidth', 5,'Color','blue','Opacity',0.25);
+                    RGB = insertShape(inimage, 'FilledCircle', [coordinates,expt.tracking.radius*2*ones(size(coordinates,1),1)], 'LineWidth', 5,'Color','green','Opacity',0.3);
 
                     % Save the marked image
 %                      figure(4),imshow(RGB)
@@ -189,7 +197,7 @@ for imageset = expt.tracking.runlist,
                         expt.info.imagestart{imageset},...
                         'Det_',...
                         sprintf(['%.',num2str(zeropad),'d'],i),...
-                        '.jpg'];
+                        '.tif'];
 %                     imwrite(RGB,outfile);
                     imwrite(im2uint8(RGB),outfile);
 
