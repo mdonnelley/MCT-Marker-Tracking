@@ -241,7 +241,10 @@ while m <= length(expt.tracking(tracked).runlist),
     else
                 
         % Sort the data into the correct order
-        tmpdata(:,1) = expt.tracking.times(tmpdata(:,1))';
+        [C,ia,ic] = unique(expt.tracking.blocks);
+        temptimes = expt.tracking.times(ic');
+        tmpdata(:,1) = temptimes(tmpdata(:,1))'; % To fix error found by Larissa Billig
+%        tmpdata(:,1) = expt.tracking.times(tmpdata(:,1))';
         tmpdata = sortrows(tmpdata,[1 2 3]);
         
         % Remove any data from selections outside the image area
