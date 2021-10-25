@@ -44,7 +44,7 @@ switch button
         
         [filename,pathname] = uigetfile('*.mat','Select a file',[basepath,'/MCT*.mat']);
         if filename == 0, return; end
-        MAT = [pathname,filename];
+        MAT = fullfile(pathname,filename);
         XLS = [MAT(1:length(MAT)-4),'.xls'];
         load(MAT);
         if complete,
